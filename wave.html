@@ -199,7 +199,6 @@ const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 let oscillators = [];
 let isPlaying = false;
 let noiseCancelOn = false;
-
 let sampleOscillators = [];
 let sampleIsPlaying = false;
 let sampleWorkletNode = null;
@@ -211,7 +210,6 @@ let sampleOscillatorsState = {};
 let sampleWaveType = '';
 let sampleBaseFreq = 440;
 let sampleDrawRequest = null;
-
 let workletReady = false;
 let workletNode = null;
 const sampleDefs = {
@@ -295,7 +293,7 @@ $$
     }
   }
 };
-  function updateNcBtnState() {
+function updateNcBtnState() {
   const ncBtn = document.getElementById('nc-btn');
   if (oscillators.length === 0) {
     ncBtn.disabled = true;
@@ -349,7 +347,6 @@ function updateOscListUI() {
     `;
     list.appendChild(row);
   });
-  // 슬라이더-입력 상호연동
   oscillators.forEach((o, idx) => {
     const freqNum = document.getElementById(`osc-freq-num-${idx}`);
     const freqRange = document.getElementById(`osc-freq-range-${idx}`);
@@ -496,7 +493,6 @@ function updateSampleOscListUI() {
     `;
     list.appendChild(row);
   });
-  // 슬라이더-입력 상호연동
   sampleOscillators.forEach((o, idx) => {
     const freqNum = document.getElementById(`sample-freq-num-${idx}`);
     const freqRange = document.getElementById(`sample-freq-range-${idx}`);
@@ -555,7 +551,37 @@ document.getElementById('sample-reset-btn').onclick = () => {
   document.getElementById('sample-nc-btn').textContent = '노이즈 캔슬링 OFF';
   updateSampleOscListUI();
 };
-  async function setupWorklet() {
+document.getElementById('sample-nc-btn').onclick = () => {
+  if (sampleOscillators.length === 0) return;
+  const tag = 'sample';
+  if (!sampleNoiseCancelOn) {
+    const newOscs = [];
+    for (let i = 0; i < sampleOscillators.length; ++i) {
+      const o = sampleOscillators[i];
+      if (!o.active) continue;
+      const color = randomColor();
+      newOscs.push({
+        freq: o.freq,
+        amp: o.amp,
+        phase: (o.phase + 180)%360,
+        active: o.active,
+        color,
+        ncTag: tag
+      });
+    }
+    sampleOscillators = sampleOscillators.concat(newOscs);
+    sampleNoiseCancelOn = true;
+    document.getElementById('sample-nc-btn').classList.add('active');
+    document.getElementById('sample-nc-btn').textContent = '노이즈 캔슬링 ON';
+  } else {
+    sampleOscillators = sampleOscillators.filter(o => o.ncTag !== tag);
+    sampleNoiseCancelOn = false;
+    document.getElementById('sample-nc-btn').classList.remove('active');
+    document.getElementById('sample-nc-btn').textContent = '노이즈 캔슬링 OFF';
+  }
+  updateSampleOscListUI();
+};
+async function setupWorklet() {
   if (workletReady) return;
   await audioCtx.audioWorklet.addModule(URL.createObjectURL(new Blob([`
 class SineSumProcessor extends AudioWorkletProcessor {
