@@ -69,6 +69,7 @@
     .wave-btn:hover { box-shadow: 0 4px 16px #0002; border-color: #2196f3; }
     .wave-btn svg { width: 80px; height: 40px; margin-bottom: 8px; }
     .wave-btn span { font-size: 1.1em; margin-top: 2px; }
+    .wave-btn svg polyline { stroke-width: 4 !important; }
     #sample-controls, #sample-canvas-wrap {
       visibility: hidden; position: absolute; left: -9999px;
     }
@@ -138,19 +139,19 @@
   <div id="sample-buttons">
     <button class="wave-btn" id="btn-tri">
       <svg viewBox="0 0 80 40">
-        <polyline points="0,20 20,0 40,20 60,40 80,20" fill="none" stroke="#2196f3" stroke-width="4"/>
+        <polyline points="0,20 20,0 40,20 60,40 80,20" fill="none" stroke="#2196f3"/>
       </svg>
       <span>Triangle</span>
     </button>
     <button class="wave-btn" id="btn-square">
       <svg viewBox="0 0 80 40">
-        <polyline points="0,40 0,0 40,0 40,40 80,40 80,0" fill="none" stroke="#e91e63" stroke-width="4"/>
+        <polyline points="0,40 0,0 40,0 40,40 80,40 80,0" fill="none" stroke="#e91e63"/>
       </svg>
       <span>Square</span>
     </button>
     <button class="wave-btn" id="btn-saw">
       <svg viewBox="0 0 80 40">
-        <polyline points="0,40 80,0 80,40" fill="none" stroke="#4caf50" stroke-width="4"/>
+        <polyline points="0,40 80,0 80,40" fill="none" stroke="#4caf50"/>
       </svg>
       <span>Sawtooth</span>
     </button>
