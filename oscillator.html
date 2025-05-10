@@ -42,8 +42,18 @@
     .wave-btn:hover { box-shadow: 0 4px 16px #0002; border-color: #2196f3; }
     .wave-btn svg { width: 80px; height: 40px; margin-bottom: 8px; }
     .wave-btn span { font-size: 1.1em; margin-top: 2px; }
-    #sample-controls { display: none; }
-    #sample-canvas-wrap { display: none; }
+    #sample-controls, #sample-canvas-wrap {
+      visibility: hidden; position: absolute; left: -9999px;
+    }
+    #controls, #canvas-wrap, #sample-buttons {
+      visibility: visible; position: static;
+    }
+    .show-sample #sample-controls, .show-sample #sample-canvas-wrap {
+      visibility: visible !important; position: static !important;
+    }
+    .show-sample #controls, .show-sample #canvas-wrap, .show-sample #sample-buttons {
+      visibility: hidden !important; position: absolute !important; left: -9999px !important;
+    }
     #sample-osc-list { margin-top: 8px; }
     #back-btn { background: #888; color: #fff; margin-left: 0; }
   </style>
@@ -183,6 +193,7 @@ window.removeOsc = (idx) => {
   updateOscListUI();
 };
 
+// ★★★ 오실레이터 추가 시 재생 중이면 바로 소리 ★★★
 document.getElementById('add-btn').onclick = () => {
   unlockAudioContext();
   const color = randomColor();
@@ -190,6 +201,8 @@ document.getElementById('add-btn').onclick = () => {
   const vol = 0.5;
   const phase = 0;
   const osc = createOscillator(freq, vol, phase, color);
+  osc.active = true;
+  osc.gain.gain.value = (isPlaying && osc.active) ? vol : 0;
   oscillators.push(osc);
   updateOscListUI();
 };
@@ -309,44 +322,31 @@ let sampleDrawRequest = null;
 
 function showSampleMode(type) {
   unlockAudioContext();
-  document.getElementById('controls').style.display = 'none';
-  document.getElementById('canvas-wrap').style.display = 'none';
-  document.getElementById('sample-buttons').style.display = 'none';
-  // setTimeout으로 UI 렌더링 보장 (iOS WebKit 대응)
-  setTimeout(()=>{
-    document.getElementById('sample-controls').style.display = '';
-    document.getElementById('sample-canvas-wrap').style.display = '';
-    stopSampleOscillators();
-    sampleOscillators = [];
-    let harm = sampleDefs[type].harmonics(sampleBaseFreq);
-    for(let i=0;i<harm.length;i++) {
-      let h = harm[i];
-      let osc = createOscillator(h.freq, h.amp, h.phase, sampleDefs[type].color);
-      osc.amp = h.amp;
-      osc.active = true;
-      sampleOscillators.push(osc);
-    }
-    updateSampleOscListUI();
-    document.getElementById('sample-formula').textContent = sampleDefs[type].formula(sampleBaseFreq);
-    sampleIsPlaying = false;
-    setSampleOscillatorGains();
-    document.getElementById('sample-play-btn').textContent = '▶ 재생';
-    cancelAnimationFrame(sampleDrawRequest);
-    sampleDrawLoop();
-  }, 30); // 30ms 템포로 iOS에서 렌더링 확실히 반영
+  document.body.classList.add('show-sample');
+  stopSampleOscillators();
+  sampleOscillators = [];
+  let harm = sampleDefs[type].harmonics(sampleBaseFreq);
+  for(let i=0;i<harm.length;i++) {
+    let h = harm[i];
+    let osc = createOscillator(h.freq, h.amp, h.phase, sampleDefs[type].color);
+    osc.amp = h.amp;
+    osc.active = true;
+    sampleOscillators.push(osc);
+  }
+  updateSampleOscListUI();
+  document.getElementById('sample-formula').textContent = sampleDefs[type].formula(sampleBaseFreq);
+  sampleIsPlaying = false;
+  setSampleOscillatorGains();
+  document.getElementById('sample-play-btn').textContent = '▶ 재생';
+  cancelAnimationFrame(sampleDrawRequest);
+  sampleDrawLoop();
 }
 
 function hideSampleMode() {
   stopSampleOscillators();
-  document.getElementById('controls').style.display = '';
-  document.getElementById('canvas-wrap').style.display = '';
-  document.getElementById('sample-buttons').style.display = '';
-  document.getElementById('sample-controls').style.display = 'none';
-  document.getElementById('sample-canvas-wrap').style.display = 'none';
+  document.body.classList.remove('show-sample');
   sampleIsPlaying = false;
   cancelAnimationFrame(sampleDrawRequest);
-  // 샘플 버튼 다시 보이게
-  setTimeout(()=>{document.getElementById('sample-buttons').style.display = 'flex';},0);
 }
 
 function stopSampleOscillators() {
