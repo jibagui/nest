@@ -112,7 +112,10 @@
   </div>
   <div id="sample-buttons">
     <button class="wave-btn" id="btn-tri">
-      <svg viewBox="0 0 80 40"><polyline points="0,40 20,0 40,40 60,0 80,40" fill="none" stroke="#2196f3" stroke-width="4"/></svg>
+      <!-- 한 주기 삼각파 -->
+      <svg viewBox="0 0 80 40">
+        <polyline points="0,40 40,0 80,40" fill="none" stroke="#2196f3" stroke-width="4"/>
+      </svg>
       <span>Triangle</span>
     </button>
     <button class="wave-btn" id="btn-square">
@@ -278,7 +281,7 @@ document.getElementById('reset-btn').onclick = () => {
   document.getElementById('nc-btn').textContent = '노이즈 캔슬링 OFF';
   updateOscListUI();
 };
-// ★ 노이즈 캔슬링 버튼(기본 모드) - 활성화(ON) 오실레이터만 반대 위상 생성
+// 노이즈 캔슬링 버튼(기본 모드) - 활성화(ON) 오실레이터만 반대 위상 생성
 document.getElementById('nc-btn').onclick = () => {
   if (!noiseCancelOn) {
     noiseCancelOscIdxs = [];
@@ -315,10 +318,11 @@ document.getElementById('play-btn').onclick = async () => {
   isPlaying = !isPlaying;
   if (isPlaying) {
     workletNode.connect(audioCtx.destination);
+    document.getElementById('play-btn').textContent = 'Ⅱ 일시정지';
   } else {
     workletNode.disconnect();
+    document.getElementById('play-btn').textContent = '▶ 재생';
   }
-  document.getElementById('play-btn').textContent = isPlaying ? '⏸ 일시정지' : '▶ 재생';
 };
 oscillators = [];
 updateOscListUI();
@@ -563,7 +567,7 @@ document.getElementById('sample-reset-btn').onclick = () => {
   document.getElementById('sample-nc-btn').textContent = '노이즈 캔슬링 OFF';
   updateSampleOscListUI();
 };
-// ★ 노이즈 캔슬링 버튼(샘플 모드) - 활성화(ON) 오실레이터만 반대 위상 생성
+// 노이즈 캔슬링 버튼(샘플 모드) - 활성화(ON) 오실레이터만 반대 위상 생성
 document.getElementById('sample-nc-btn').onclick = () => {
   if (!sampleNoiseCancelOn) {
     sampleNoiseCancelOscIdxs = [];
@@ -601,10 +605,11 @@ document.getElementById('sample-play-btn').onclick = async () => {
   sampleIsPlayingFlag = sampleIsPlaying;
   if (sampleIsPlaying) {
     sampleWorkletNode.connect(audioCtx.destination);
+    document.getElementById('sample-play-btn').textContent = 'Ⅱ 일시정지';
   } else {
     sampleWorkletNode.disconnect();
+    document.getElementById('sample-play-btn').textContent = '▶ 재생';
   }
-  document.getElementById('sample-play-btn').textContent = sampleIsPlaying ? '⏸ 일시정지' : '▶ 재생';
 };
 document.getElementById('back-btn').onclick = () => {
   hideSampleMode();
@@ -613,7 +618,7 @@ document.getElementById('btn-tri').onclick = ()=>showSampleMode('triangle');
 document.getElementById('btn-square').onclick = ()=>showSampleMode('square');
 document.getElementById('btn-saw').onclick = ()=>showSampleMode('saw');
 
-// 그래프
+// 그래프 (0ms 눈금 오른쪽 이동)
 function drawAxes(ctx, width, height, yMin, yMax) {
   ctx.save();
   ctx.strokeStyle = "#888";
@@ -621,22 +626,33 @@ function drawAxes(ctx, width, height, yMin, yMax) {
   ctx.font = "12px sans-serif";
   ctx.fillStyle = "#888";
   ctx.globalAlpha = 1;
+
+  // x축
   ctx.beginPath();
   ctx.moveTo(40, height/2);
   ctx.lineTo(width-10, height/2);
   ctx.stroke();
+
+  // y축
   ctx.beginPath();
   ctx.moveTo(40, 10);
   ctx.lineTo(40, height-10);
   ctx.stroke();
+
+  // x축 눈금 (0ms 오른쪽으로 이동)
+  const zeroX = 48;
   for(let ms=0; ms<=20; ms+=5) {
-    let x = 40 + (width-60)*(ms/20);
+    let x;
+    if (ms === 0) x = zeroX;
+    else x = 40 + (width-60)*(ms/20);
     ctx.beginPath();
     ctx.moveTo(x, height/2-5);
     ctx.lineTo(x, height/2+5);
     ctx.stroke();
     ctx.fillText(`${ms}ms`, x-12, height/2+20);
   }
+
+  // y축 눈금
   let range = yMax - yMin;
   let idealSteps = Math.floor((height-40)/32);
   let step = Math.pow(10, Math.floor(Math.log10(range)));
