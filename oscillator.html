@@ -56,7 +56,18 @@
     }
     #sample-osc-list { margin-top: 8px; }
     #back-btn { background: #888; color: #fff; margin-left: 0; }
+    .sample-formula-math {
+      background: #f6f6f6;
+      border-radius: 8px;
+      padding: 18px 18px 12px 18px;
+      margin: 16px auto 10px auto;
+      font-size: 1.15em;
+      max-width: 720px;
+      text-align: left;
+    }
   </style>
+  <!-- MathJax for LaTeX rendering -->
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 </head>
 <body>
   <div id="controls">
@@ -81,16 +92,12 @@
       <svg viewBox="0 0 80 40"><polyline points="0,40 80,0 80,40" fill="none" stroke="#4caf50" stroke-width="4"/></svg>
       <span>Sawtooth</span>
     </button>
-    <button class="wave-btn" id="btn-semisine">
-      <svg viewBox="0 0 80 40"><path d="M0,40 Q20,0 40,0 Q60,0 80,40" fill="none" stroke="#ff9800" stroke-width="4"/></svg>
-      <span>Semisine</span>
-    </button>
   </div>
   <!-- 샘플 모드 UI -->
   <div id="sample-controls">
     <button id="sample-play-btn">▶ 재생</button>
     <button id="back-btn">← 뒤로가기</button>
-    <div id="sample-formula" style="margin:18px 0 12px 0;"></div>
+    <div id="sample-formula" class="sample-formula-math"></div>
     <div id="sample-osc-list"></div>
   </div>
   <div id="sample-canvas-wrap">
@@ -193,7 +200,7 @@ window.removeOsc = (idx) => {
   updateOscListUI();
 };
 
-// ★★★ 오실레이터 추가 시 재생 중이면 바로 소리 ★★★
+// 오실레이터 추가 시 재생 중이면 바로 소리
 document.getElementById('add-btn').onclick = () => {
   unlockAudioContext();
   const color = randomColor();
@@ -228,15 +235,18 @@ const sampleDefs = {
     name: 'Triangle',
     color: '#2196f3',
     N: 9,
-    formula: (f) => {
-      let s = 'y = ';
-      for(let n=1,first=true;n<=9;n+=2) {
-        let amp = 8/(Math.PI*Math.PI)/n/n*(n%4===1?1:-1);
-        s += (!first? ' + ' : '') + amp.toFixed(3) + '·sin(2π·'+(n*f)+'·t)';
-        first = false;
-      }
-      return s;
-    },
+    formulaLatex: `
+### 1. 삼각파 (Triangle Wave)
+$$
+f_{\\text{triangle}}(t) = \\frac{8}{\\pi^2} \\left[
+    \\sin(2\\pi f t)
+    - \\frac{1}{9} \\sin(2\\pi \\cdot 3f t)
+    + \\frac{1}{25} \\sin(2\\pi \\cdot 5f t)
+    - \\frac{1}{49} \\sin(2\\pi \\cdot 7f t)
+    + \\cdots
+\\right]
+$$
+`,
     harmonics: (f) => {
       let arr = [];
       for(let n=1;n<=9;n+=2) {
@@ -250,15 +260,18 @@ const sampleDefs = {
     name: 'Square',
     color: '#e91e63',
     N: 9,
-    formula: (f) => {
-      let s = 'y = ';
-      for(let n=1,first=true;n<=9;n+=2) {
-        let amp = 4/(Math.PI*n);
-        s += (!first? ' + ' : '') + amp.toFixed(3) + '·sin(2π·'+(n*f)+'·t)';
-        first = false;
-      }
-      return s;
-    },
+    formulaLatex: `
+### 2. 사각파 (Square Wave)
+$$
+f_{\\text{square}}(t) = \\frac{4}{\\pi} \\left[
+    \\sin(2\\pi f t)
+    + \\frac{1}{3} \\sin(2\\pi \\cdot 3f t)
+    + \\frac{1}{5} \\sin(2\\pi \\cdot 5f t)
+    + \\frac{1}{7} \\sin(2\\pi \\cdot 7f t)
+    + \\cdots
+\\right]
+$$
+`,
     harmonics: (f) => {
       let arr = [];
       for(let n=1;n<=9;n+=2) {
@@ -272,41 +285,23 @@ const sampleDefs = {
     name: 'Sawtooth',
     color: '#4caf50',
     N: 9,
-    formula: (f) => {
-      let s = 'y = ';
-      for(let n=1,first=true;n<=9;n++) {
-        let amp = 2/(Math.PI*n)*(n%2===0?-1:1);
-        s += (!first? ' + ' : '') + amp.toFixed(3) + '·sin(2π·'+(n*f)+'·t)';
-        first = false;
-      }
-      return s;
-    },
+    formulaLatex: `
+### 3. 톱니파 (Sawtooth Wave)
+$$
+f_{\\text{sawtooth}}(t) = \\frac{2}{\\pi} \\left[
+    \\sin(2\\pi f t)
+    - \\frac{1}{2} \\sin(2\\pi \\cdot 2f t)
+    + \\frac{1}{3} \\sin(2\\pi \\cdot 3f t)
+    - \\frac{1}{4} \\sin(2\\pi \\cdot 4f t)
+    + \\frac{1}{5} \\sin(2\\pi \\cdot 5f t)
+    - \\cdots
+\\right]
+$$
+`,
     harmonics: (f) => {
       let arr = [];
       for(let n=1;n<=9;n++) {
         let amp = 2/(Math.PI*n)*(n%2===0?-1:1);
-        arr.push({freq: n*f, amp: Math.abs(amp), phase: amp>0?0:180});
-      }
-      return arr;
-    }
-  },
-  'semisine': {
-    name: 'Semisine',
-    color: '#ff9800',
-    N: 9,
-    formula: (f) => {
-      let s = 'y = ';
-      for(let n=1,first=true;n<=9;n+=2) {
-        let amp = 2/(Math.PI*(n*n-1));
-        s += (!first? ' + ' : '') + amp.toFixed(3) + '·sin(2π·'+(n*f)+'·t)';
-        first = false;
-      }
-      return s;
-    },
-    harmonics: (f) => {
-      let arr = [];
-      for(let n=1;n<=9;n+=2) {
-        let amp = 2/(Math.PI*(n*n-1));
         arr.push({freq: n*f, amp: Math.abs(amp), phase: amp>0?0:180});
       }
       return arr;
@@ -334,7 +329,9 @@ function showSampleMode(type) {
     sampleOscillators.push(osc);
   }
   updateSampleOscListUI();
-  document.getElementById('sample-formula').textContent = sampleDefs[type].formula(sampleBaseFreq);
+  // LaTeX 수식 표시
+  document.getElementById('sample-formula').innerHTML = sampleDefs[type].formulaLatex;
+  if(window.MathJax && MathJax.typesetPromise) MathJax.typesetPromise();
   sampleIsPlaying = false;
   setSampleOscillatorGains();
   document.getElementById('sample-play-btn').textContent = '▶ 재생';
@@ -403,7 +400,6 @@ document.getElementById('back-btn').onclick = () => {
 document.getElementById('btn-tri').onclick = ()=>showSampleMode('triangle');
 document.getElementById('btn-square').onclick = ()=>showSampleMode('square');
 document.getElementById('btn-saw').onclick = ()=>showSampleMode('saw');
-document.getElementById('btn-semisine').onclick = ()=>showSampleMode('semisine');
 
 // --------- 그래프 그리기 ---------
 function drawAxes(ctx, width, height, yMin, yMax) {
