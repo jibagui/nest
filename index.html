@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <title>실시간 사인파 합성기</title>
+  <title>실시간 사인파 합성기 (좌표평면)</title>
   <style>
     body { font-family: sans-serif; background: #f4f4f4; margin: 0; padding: 0; }
     #controls { background: #fff; padding: 20px; border-bottom: 1px solid #ddd; }
@@ -16,55 +16,97 @@
     canvas { border: 1px solid #bbb; margin: 20px auto; background: #fafafa; }
     .on { background: #4caf50; color: #fff; }
     .off { background: #eee; color: #444; }
+    #audio-unlock {
+      position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+      background: rgba(0,0,0,0.7); color: #fff; display: flex;
+      align-items: center; justify-content: center; z-index: 1000;
+      flex-direction: column;
+    }
+    #audio-unlock button {
+      font-size: 1.2em; padding: 1em 2em; border: none; border-radius: 8px;
+      background: #4caf50; color: #fff; margin-top: 1em; cursor: pointer;
+    }
+    #play-btn {
+      font-size: 1.2em; padding: 0.7em 2em; border: none; border-radius: 8px;
+      background: #2196f3; color: #fff; margin-bottom: 1em; cursor: pointer;
+      margin-right: 1em;
+    }
+    .formula {
+      font-size: 1em;
+      margin-left: 1.5em;
+      color: #333;
+      font-family: 'Consolas', 'Menlo', 'Monaco', monospace;
+      background: #f6f6f6;
+      border-radius: 6px;
+      padding: 2px 8px;
+      display: inline-block;
+    }
   </style>
 </head>
 <body>
-  <div id="controls">
+  <div id="audio-unlock">
+    <div>소리를 듣기 위해 아래 버튼을 눌러주세요.<br>(iPad, iPhone, PC 모두 필요)</div>
+    <button onclick="unlockAudio()">소리 활성화</button>
+  </div>
+  <div id="controls" style="filter: blur(2px); pointer-events: none;" aria-disabled="true">
+    <button id="play-btn">▶ 재생</button>
     <div id="osc-list"></div>
     <button id="add-btn">오실레이터 추가</button>
   </div>
   <div id="canvas-wrap">
-    <canvas id="waveform" width="800" height="320"></canvas>
+    <canvas id="waveform" width="820" height="340"></canvas>
   </div>
 <script>
-const colors = [
-  'rgba(255,0,0,0.35)',    // 빨강
-  'rgba(0,128,255,0.35)',  // 파랑
-  'rgba(0,200,0,0.35)',    // 초록
-  'rgba(255,128,0,0.35)',  // 주황
-  'rgba(128,0,255,0.35)',  // 보라
-  'rgba(255,0,128,0.35)',  // 핑크
-  'rgba(0,200,200,0.35)',  // 청록
-  'rgba(128,128,0,0.35)'   // 올리브
-];
+function randomColor(alpha=0.35) {
+  const r = Math.floor(Math.random()*200+30);
+  const g = Math.floor(Math.random()*200+30);
+  const b = Math.floor(Math.random()*200+30);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 let oscillators = [];
+let isPlaying = false;
+let masterGain = audioCtx.createGain();
+masterGain.gain.value = 1;
+masterGain.connect(audioCtx.destination);
 
-function createOscillator(freq, vol, colorIdx) {
+function createOscillator(freq, vol, phaseDeg, color) {
   const osc = audioCtx.createOscillator();
   osc.type = 'sine';
   osc.frequency.value = freq;
   const gain = audioCtx.createGain();
-  gain.gain.value = vol;
-  osc.connect(gain).connect(audioCtx.destination);
+  gain.gain.value = 0; // 일단 0, 재생할 때만 볼륨 적용
+  osc.connect(gain).connect(masterGain);
   osc.start();
-  return { osc, gain, freq, vol, active: false, colorIdx };
+  return {
+    osc, gain,
+    freq, vol,
+    phase: phaseDeg,
+    color,
+    active: true
+  };
 }
 
 function updateOscListUI() {
   const list = document.getElementById('osc-list');
   list.innerHTML = '';
   oscillators.forEach((o, idx) => {
+    // 수식 표현 (A·sin(2πft + φ))
+    const phaseRad = (o.phase * Math.PI / 180).toFixed(2);
+    const formula = `y = ${o.vol}·sin(2π·${o.freq}·t + ${phaseRad})`;
     const row = document.createElement('div');
     row.className = 'osc-row';
     row.innerHTML = `
-      <label style="color:${colors[o.colorIdx]}">OSC${idx+1}</label>
+      <label style="color:${o.color}; font-weight:bold;">OSC${idx+1}</label>
       <label>주파수(Hz):</label>
       <input type="number" value="${o.freq}" min="20" max="2000" step="1" onchange="setFreq(${idx}, this.value)">
-      <label>볼륨:</label>
+      <label>볼륨(A):</label>
       <input type="number" value="${o.vol}" min="0" max="1" step="0.01" onchange="setVol(${idx}, this.value)">
+      <label>위상(°):</label>
+      <input type="number" value="${o.phase}" min="0" max="360" step="1" onchange="setPhase(${idx}, this.value)">
       <button class="${o.active?'on':'off'}" onclick="toggleOsc(${idx}, this)">${o.active?'ON':'OFF'}</button>
       <button onclick="removeOsc(${idx})">삭제</button>
+      <span class="formula">${formula}</span>
     `;
     list.appendChild(row);
   });
@@ -72,19 +114,27 @@ function updateOscListUI() {
 window.setFreq = (idx, val) => {
   oscillators[idx].freq = Number(val);
   oscillators[idx].osc.frequency.value = Number(val);
+  updateOscListUI();
 };
 window.setVol = (idx, val) => {
   oscillators[idx].vol = Number(val);
-  if (oscillators[idx].active)
+  if (oscillators[idx].active && isPlaying)
     oscillators[idx].gain.gain.value = Number(val);
   else
     oscillators[idx].gain.gain.value = 0;
+  updateOscListUI();
+};
+window.setPhase = (idx, val) => {
+  oscillators[idx].phase = Number(val)%360;
+  updateOscListUI();
 };
 window.toggleOsc = (idx, btn) => {
   oscillators[idx].active = !oscillators[idx].active;
-  oscillators[idx].gain.gain.value = oscillators[idx].active ? oscillators[idx].vol : 0;
-  btn.textContent = oscillators[idx].active ? 'ON' : 'OFF';
-  btn.className = oscillators[idx].active ? 'on' : 'off';
+  if (isPlaying && oscillators[idx].active)
+    oscillators[idx].gain.gain.value = oscillators[idx].vol;
+  else
+    oscillators[idx].gain.gain.value = 0;
+  updateOscListUI();
 };
 window.removeOsc = (idx) => {
   oscillators[idx].osc.stop();
@@ -95,49 +145,117 @@ window.removeOsc = (idx) => {
 };
 
 document.getElementById('add-btn').onclick = () => {
-  const colorIdx = oscillators.length % colors.length;
-  const osc = createOscillator(440, 0.3, colorIdx);
+  const color = randomColor();
+  const freq = 440 + Math.floor(Math.random()*200-100);
+  const vol = 0.3;
+  const phase = Math.floor(Math.random()*360);
+  const osc = createOscillator(freq, vol, phase, color);
   oscillators.push(osc);
   updateOscListUI();
 };
 
+function setOscillatorGains() {
+  oscillators.forEach(o => {
+    o.gain.gain.value = (isPlaying && o.active) ? o.vol : 0;
+  });
+}
+
+document.getElementById('play-btn').onclick = () => {
+  isPlaying = !isPlaying;
+  setOscillatorGains();
+  document.getElementById('play-btn').textContent = isPlaying ? '⏸ 일시정지' : '▶ 재생';
+};
+
 updateOscListUI();
+
+// 좌표평면 그리기 함수
+function drawAxes(ctx, width, height, tRange, yRange) {
+  ctx.save();
+  ctx.strokeStyle = "#888";
+  ctx.lineWidth = 1;
+  ctx.font = "12px sans-serif";
+  ctx.fillStyle = "#888";
+  ctx.globalAlpha = 1;
+
+  // X축 (시간)
+  ctx.beginPath();
+  ctx.moveTo(40, height/2);
+  ctx.lineTo(width-10, height/2);
+  ctx.stroke();
+
+  // Y축 (진폭)
+  ctx.beginPath();
+  ctx.moveTo(40, 10);
+  ctx.lineTo(40, height-10);
+  ctx.stroke();
+
+  // X축 눈금 (0~20ms)
+  for(let ms=0; ms<=20; ms+=5) {
+    let x = 40 + (width-60)*(ms/20);
+    ctx.beginPath();
+    ctx.moveTo(x, height/2-5);
+    ctx.lineTo(x, height/2+5);
+    ctx.stroke();
+    ctx.fillText(`${ms}ms`, x-12, height/2+20);
+  }
+
+  // Y축 눈금 (-1~+1)
+  for(let a=-1; a<=1.01; a+=0.5) {
+    let y = height/2 - a*(height-40)/2;
+    ctx.beginPath();
+    ctx.moveTo(35, y);
+    ctx.lineTo(45, y);
+    ctx.stroke();
+    ctx.fillText(a.toFixed(1), 10, y+4);
+  }
+
+  ctx.restore();
+}
 
 // 실시간 파형 그리기
 function draw() {
-  const ctx = document.getElementById('waveform').getContext('2d');
-  ctx.clearRect(0,0,800,320);
+  const canvas = document.getElementById('waveform');
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  // 좌표평면
+  drawAxes(ctx, canvas.width, canvas.height, [0,0.02], [-1,1]);
+
   const n = 800;
-  const t = Array.from({length:n}, (_,i)=>i/n*0.02); // 20ms
+  const t = Array.from({length:n}, (_,i)=>i/n*0.02); // 0~0.02초(20ms)
   let sum = Array(n).fill(0);
 
   // 각 오실레이터 파형 그리기
   oscillators.forEach((o,idx)=>{
     if(o.active) {
       ctx.beginPath();
-      ctx.strokeStyle = colors[o.colorIdx];
+      ctx.strokeStyle = o.color;
       ctx.lineWidth = 2;
       ctx.globalAlpha = 1;
       for(let i=0; i<n; i++) {
-        const y = Math.sin(2*Math.PI*o.freq*t[i])*o.vol;
+        const phi = o.phase*Math.PI/180;
+        const y = Math.sin(2*Math.PI*o.freq*t[i] + phi)*o.vol;
         sum[i] += y;
-        const py = 160 - y*120;
-        if(i===0) ctx.moveTo(i,py);
-        else ctx.lineTo(i,py);
+        const px = 40 + (canvas.width-60)*t[i]/0.02;
+        const py = canvas.height/2 - y*(canvas.height-40)/2;
+        if(i===0) ctx.moveTo(px,py);
+        else ctx.lineTo(px,py);
       }
       ctx.stroke();
       ctx.globalAlpha = 0.35;
       ctx.beginPath();
       for(let i=0; i<n; i++) {
-        const y = Math.sin(2*Math.PI*o.freq*t[i])*o.vol;
-        const py = 160 - y*120;
-        if(i===0) ctx.moveTo(i,py);
-        else ctx.lineTo(i,py);
+        const phi = o.phase*Math.PI/180;
+        const y = Math.sin(2*Math.PI*o.freq*t[i] + phi)*o.vol;
+        const px = 40 + (canvas.width-60)*t[i]/0.02;
+        const py = canvas.height/2 - y*(canvas.height-40)/2;
+        if(i===0) ctx.moveTo(px,py);
+        else ctx.lineTo(px,py);
       }
-      ctx.lineTo(n,160);
-      ctx.lineTo(0,160);
+      ctx.lineTo(40 + (canvas.width-60), canvas.height/2);
+      ctx.lineTo(40, canvas.height/2);
       ctx.closePath();
-      ctx.fillStyle = colors[o.colorIdx];
+      ctx.fillStyle = o.color;
       ctx.fill();
       ctx.globalAlpha = 1;
     }
@@ -148,9 +266,10 @@ function draw() {
   ctx.strokeStyle = "#111";
   ctx.lineWidth = 3;
   for(let i=0; i<n; i++) {
-    const py = 160 - sum[i]*120;
-    if(i===0) ctx.moveTo(i,py);
-    else ctx.lineTo(i,py);
+    const px = 40 + (canvas.width-60)*t[i]/0.02;
+    const py = canvas.height/2 - sum[i]*(canvas.height-40)/2;
+    if(i===0) ctx.moveTo(px,py);
+    else ctx.lineTo(px,py);
   }
   ctx.stroke();
 
@@ -158,13 +277,15 @@ function draw() {
 }
 draw();
 
-// iOS 오디오 정책 대응: 첫 상호작용 시 오디오 컨텍스트 resume
-document.body.addEventListener('touchstart', ()=>{
-  if(audioCtx.state === 'suspended') audioCtx.resume();
-}, {once:true});
-document.body.addEventListener('mousedown', ()=>{
-  if(audioCtx.state === 'suspended') audioCtx.resume();
-}, {once:true});
+// 오디오 활성화 UI 및 컨텍스트 resume
+function unlockAudio() {
+  audioCtx.resume().then(()=>{
+    document.getElementById('audio-unlock').style.display = 'none';
+    document.getElementById('controls').style.filter = '';
+    document.getElementById('controls').style.pointerEvents = '';
+    document.getElementById('controls').removeAttribute('aria-disabled');
+  });
+}
 </script>
 </body>
 </html>
