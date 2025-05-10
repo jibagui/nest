@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <title>실시간 사인파 합성기 (좌표평면)</title>
+  <title>실시간 사인파 합성기 (좌표평면, 라디안 위상)</title>
   <style>
     body { font-family: sans-serif; background: #f4f4f4; margin: 0; padding: 0; }
     #controls { background: #fff; padding: 20px; border-bottom: 1px solid #ddd; }
@@ -16,16 +16,6 @@
     canvas { border: 1px solid #bbb; margin: 20px auto; background: #fafafa; }
     .on { background: #4caf50; color: #fff; }
     .off { background: #eee; color: #444; }
-    #audio-unlock {
-      position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-      background: rgba(0,0,0,0.7); color: #fff; display: flex;
-      align-items: center; justify-content: center; z-index: 1000;
-      flex-direction: column;
-    }
-    #audio-unlock button {
-      font-size: 1.2em; padding: 1em 2em; border: none; border-radius: 8px;
-      background: #4caf50; color: #fff; margin-top: 1em; cursor: pointer;
-    }
     #play-btn {
       font-size: 1.2em; padding: 0.7em 2em; border: none; border-radius: 8px;
       background: #2196f3; color: #fff; margin-bottom: 1em; cursor: pointer;
@@ -44,11 +34,7 @@
   </style>
 </head>
 <body>
-  <div id="audio-unlock">
-    <div>소리를 듣기 위해 아래 버튼을 눌러주세요.<br>(iPad, iPhone, PC 모두 필요)</div>
-    <button onclick="unlockAudio()">소리 활성화</button>
-  </div>
-  <div id="controls" style="filter: blur(2px); pointer-events: none;" aria-disabled="true">
+  <div id="controls">
     <button id="play-btn">▶ 재생</button>
     <div id="osc-list"></div>
     <button id="add-btn">오실레이터 추가</button>
@@ -87,13 +73,24 @@ function createOscillator(freq, vol, phaseDeg, color) {
   };
 }
 
+// π 단위 라디안으로 위상 표기
+function phaseToPiString(deg) {
+  deg = ((deg % 360) + 360) % 360; // 0~359
+  if (deg === 0) return '0';
+  if (deg === 180) return 'π';
+  if (deg === 90) return 'π/2';
+  if (deg === 270) return '3π/2';
+  // 일반 각도는 소수점 2자리까지 π로 표기
+  let frac = +(deg / 180).toFixed(2);
+  return `${frac}π`;
+}
+
 function updateOscListUI() {
   const list = document.getElementById('osc-list');
   list.innerHTML = '';
   oscillators.forEach((o, idx) => {
-    // 수식 표현 (A·sin(2πft + φ))
-    const phaseRad = (o.phase * Math.PI / 180).toFixed(2);
-    const formula = `y = ${o.vol}·sin(2π·${o.freq}·t + ${phaseRad})`;
+    const phiStr = phaseToPiString(o.phase);
+    const formula = `y = ${o.vol}·sin(2π·${o.freq}·t + ${phiStr})`;
     const row = document.createElement('div');
     row.className = 'osc-row';
     row.innerHTML = `
@@ -145,9 +142,10 @@ window.removeOsc = (idx) => {
 };
 
 document.getElementById('add-btn').onclick = () => {
+  unlockAudioContext();
   const color = randomColor();
   const freq = 440 + Math.floor(Math.random()*200-100);
-  const vol = 0.3;
+  const vol = 0.5;
   const phase = Math.floor(Math.random()*360);
   const osc = createOscillator(freq, vol, phase, color);
   oscillators.push(osc);
@@ -161,6 +159,7 @@ function setOscillatorGains() {
 }
 
 document.getElementById('play-btn').onclick = () => {
+  unlockAudioContext();
   isPlaying = !isPlaying;
   setOscillatorGains();
   document.getElementById('play-btn').textContent = isPlaying ? '⏸ 일시정지' : '▶ 재생';
@@ -277,15 +276,15 @@ function draw() {
 }
 draw();
 
-// 오디오 활성화 UI 및 컨텍스트 resume
-function unlockAudio() {
-  audioCtx.resume().then(()=>{
-    document.getElementById('audio-unlock').style.display = 'none';
-    document.getElementById('controls').style.filter = '';
-    document.getElementById('controls').style.pointerEvents = '';
-    document.getElementById('controls').removeAttribute('aria-disabled');
-  });
+// 오디오 컨텍스트 정책 대응: 첫 상호작용 시 resume
+function unlockAudioContext() {
+  if (audioCtx.state === 'suspended') {
+    audioCtx.resume();
+  }
 }
+// 모든 상호작용(버튼, 입력 등)에 자동 적용
+document.body.addEventListener('mousedown', unlockAudioContext, {once:true});
+document.body.addEventListener('touchstart', unlockAudioContext, {once:true});
 </script>
 </body>
 </html>
