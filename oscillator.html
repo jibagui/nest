@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <title>파형 샘플 합성기</title>
+  <title>실시간 합성파(완벽 상쇄) 통합</title>
   <style>
     body { font-family: sans-serif; background: #f4f4f4; margin: 0; padding: 0; }
     #controls, #sample-controls { background: #fff; padding: 20px; border-bottom: 1px solid #ddd; }
@@ -65,31 +65,30 @@
       max-width: 98vw;
       box-sizing: border-box;
       overflow-x: auto;
-      word-break: break-word;
-      white-space: normal;
+      white-space: nowrap;
       text-align: left;
     }
-    /* MathJax CHTML output 줄바꿈 */
+    .sample-formula-math h3 {
+      margin: 0 0 8px 0;
+      font-size: 1.12em;
+      font-weight: bold;
+      color: #333;
+    }
     .mjx-container[jax="CHTML"] {
       overflow-x: auto !important;
       max-width: 100% !important;
       box-sizing: border-box;
     }
   </style>
-  <!-- MathJax for LaTeX rendering, 자동 줄바꿈 옵션 포함 -->
   <script>
     window.MathJax = {
       tex: { displayMath: [['$$','$$'], ['\\[','\\]']] },
-      options: {
-        renderActions: {
-          addMenu: []
-        }
-      },
+      options: { renderActions: { addMenu: [] } },
       chtml: {
         displayAlign: 'center',
         displayIndent: '0',
         scale: 1,
-        linebreaks: { automatic: true, width: "container" }
+        linebreaks: { automatic: false }
       }
     };
   </script>
@@ -137,27 +136,49 @@ function randomColor(alpha=0.35) {
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 let oscillators = [];
 let isPlaying = false;
-let masterGain = audioCtx.createGain();
-masterGain.gain.value = 1;
-masterGain.connect(audioCtx.destination);
 
-function createOscillator(freq, vol, phaseDeg, color) {
-  const osc = audioCtx.createOscillator();
-  osc.type = 'sine';
-  osc.frequency.value = freq;
-  const gain = audioCtx.createGain();
-  gain.gain.value = 0;
-  osc.connect(gain).connect(masterGain);
-  osc.start();
-  return {
-    osc, gain,
-    freq, vol,
-    phase: phaseDeg,
-    color,
-    active: true
-  };
+// AudioWorklet 기반 합성 엔진
+let workletReady = false;
+let workletNode = null;
+async function setupWorklet() {
+  if (workletReady) return;
+  await audioCtx.audioWorklet.addModule(URL.createObjectURL(new Blob([`
+class SineSumProcessor extends AudioWorkletProcessor {
+  constructor() {
+    super();
+    this.osc = [];
+    this.port.onmessage = e => {
+      if (e.data.type === 'osc') this.osc = e.data.data;
+    };
+    this.t = 0;
+  }
+  process(inputs, outputs, params) {
+    const out = outputs[0][0];
+    const sr = sampleRate;
+    for (let i = 0; i < out.length; i++) {
+      let y = 0;
+      for (const o of this.osc) {
+        if (o.active) {
+          let phi = o.phase*Math.PI/180;
+          y += Math.sin(2*Math.PI*o.freq*this.t + phi) * o.vol;
+        }
+      }
+      out[i] = y;
+      this.t += 1/sr;
+    }
+    return true;
+  }
 }
-
+registerProcessor('sinesum', SineSumProcessor);
+  `], {type:'application/javascript'})));
+  workletNode = new AudioWorkletNode(audioCtx, 'sinesum');
+  workletNode.connect(audioCtx.destination);
+  workletNode.port.postMessage({type: 'osc', data: oscillators});
+  workletReady = true;
+}
+function updateWorkletOsc() {
+  if (workletNode) workletNode.port.postMessage({type: 'osc', data: oscillators});
+}
 function phaseToPiString(deg) {
   deg = ((deg % 360) + 360) % 360;
   if (deg === 0) return '0';
@@ -167,7 +188,6 @@ function phaseToPiString(deg) {
   let frac = +(deg / 180).toFixed(2);
   return `${frac}π`;
 }
-
 function updateOscListUI() {
   const list = document.getElementById('osc-list');
   list.innerHTML = '';
@@ -177,7 +197,7 @@ function updateOscListUI() {
     const row = document.createElement('div');
     row.className = 'osc-row';
     row.innerHTML = `
-      <label style="color:${o.color}; font-weight:bold;">OSC${idx+1}</label>
+      <label style="color:#2196f3; font-weight:bold;">OSC${idx+1}</label>
       <label>주파수(Hz):</label>
       <input type="number" value="${o.freq}" min="20" max="2000" step="1" onchange="setFreq(${idx}, this.value)">
       <label>볼륨(A):</label>
@@ -190,83 +210,50 @@ function updateOscListUI() {
     `;
     list.appendChild(row);
   });
+  updateWorkletOsc();
 }
-window.setFreq = (idx, val) => {
-  oscillators[idx].freq = Number(val);
-  oscillators[idx].osc.frequency.value = Number(val);
-  updateOscListUI();
-};
-window.setVol = (idx, val) => {
-  oscillators[idx].vol = Number(val);
-  if (oscillators[idx].active && isPlaying)
-    oscillators[idx].gain.gain.value = Number(val);
-  else
-    oscillators[idx].gain.gain.value = 0;
-  updateOscListUI();
-};
-window.setPhase = (idx, val) => {
-  oscillators[idx].phase = Number(val)%360;
-  updateOscListUI();
-};
-window.toggleOsc = (idx, btn) => {
-  oscillators[idx].active = !oscillators[idx].active;
-  if (isPlaying && oscillators[idx].active)
-    oscillators[idx].gain.gain.value = oscillators[idx].vol;
-  else
-    oscillators[idx].gain.gain.value = 0;
-  updateOscListUI();
-};
-window.removeOsc = (idx) => {
-  oscillators[idx].osc.stop();
-  oscillators[idx].osc.disconnect();
-  oscillators[idx].gain.disconnect();
-  oscillators.splice(idx, 1);
-  updateOscListUI();
-};
-
+window.setFreq = (idx, val) => { oscillators[idx].freq = Number(val); updateOscListUI(); }
+window.setVol = (idx, val) => { oscillators[idx].vol = Number(val); updateOscListUI(); }
+window.setPhase = (idx, val) => { oscillators[idx].phase = Number(val)%360; updateOscListUI(); }
+window.toggleOsc = (idx, btn) => { oscillators[idx].active = !oscillators[idx].active; updateOscListUI(); }
+window.removeOsc = (idx) => { oscillators.splice(idx, 1); updateOscListUI(); };
 document.getElementById('add-btn').onclick = () => {
-  unlockAudioContext();
-  const color = randomColor();
-  const freq = 440;
-  const vol = 0.5;
-  const phase = 0;
-  const osc = createOscillator(freq, vol, phase, color);
-  osc.active = true;
-  osc.gain.gain.value = (isPlaying && osc.active) ? vol : 0;
-  oscillators.push(osc);
+  oscillators.push({freq:440, vol:0.5, phase:0, active:true});
   updateOscListUI();
 };
 
-function setOscillatorGains() {
-  oscillators.forEach(o => {
-    o.gain.gain.value = (isPlaying && o.active) ? o.vol : 0;
-  });
-}
-
-document.getElementById('play-btn').onclick = () => {
-  unlockAudioContext();
+document.getElementById('play-btn').onclick = async () => {
+  await setupWorklet();
+  if (audioCtx.state === 'suspended') await audioCtx.resume();
   isPlaying = !isPlaying;
-  setOscillatorGains();
+  if (isPlaying) {
+    workletNode.connect(audioCtx.destination);
+  } else {
+    workletNode.disconnect();
+  }
   document.getElementById('play-btn').textContent = isPlaying ? '⏸ 일시정지' : '▶ 재생';
 };
-
+oscillators = [
+  {freq: 440, vol: 0.5, phase: 0, active: true},
+  {freq: 440, vol: 0.5, phase: 180, active: true}
+];
 updateOscListUI();
 
-// --------- 샘플 모드 ---------
+// 샘플 모드
 const sampleDefs = {
   'triangle': {
-    name: 'Triangle',
+    name: '삼각파 (Triangle Wave)',
     color: '#2196f3',
     N: 9,
     formulaLatex: `
-삼각파 (Triangle Wave)
+<h3>삼각파 (Triangle Wave)</h3>
 $$
 f_{\\text{triangle}}(t) = \\frac{8}{\\pi^2} \\left[
     \\sin(2\\pi f t)
     - \\frac{1}{9} \\sin(2\\pi \\cdot 3f t)
     + \\frac{1}{25} \\sin(2\\pi \\cdot 5f t)
     - \\frac{1}{49} \\sin(2\\pi \\cdot 7f t)
-    + \\cdots
+    + \\frac{1}{81} \\sin(2\\pi \\cdot 9f t)
 \\right]
 $$
 `,
@@ -280,18 +267,18 @@ $$
     }
   },
   'square': {
-    name: 'Square',
+    name: '사각파 (Square Wave)',
     color: '#e91e63',
     N: 9,
     formulaLatex: `
-사각파 (Square Wave)
+<h3>사각파 (Square Wave)</h3>
 $$
 f_{\\text{square}}(t) = \\frac{4}{\\pi} \\left[
     \\sin(2\\pi f t)
     + \\frac{1}{3} \\sin(2\\pi \\cdot 3f t)
     + \\frac{1}{5} \\sin(2\\pi \\cdot 5f t)
     + \\frac{1}{7} \\sin(2\\pi \\cdot 7f t)
-    + \\cdots
+    + \\frac{1}{9} \\sin(2\\pi \\cdot 9f t)
 \\right]
 $$
 `,
@@ -305,11 +292,11 @@ $$
     }
   },
   'saw': {
-    name: 'Sawtooth',
+    name: '톱니파 (Sawtooth Wave)',
     color: '#4caf50',
     N: 9,
     formulaLatex: `
-톱니파 (Sawtooth Wave)
+<h3>톱니파 (Sawtooth Wave)</h3>
 $$
 f_{\\text{sawtooth}}(t) = \\frac{2}{\\pi} \\left[
     \\sin(2\\pi f t)
@@ -317,21 +304,15 @@ f_{\\text{sawtooth}}(t) = \\frac{2}{\\pi} \\left[
     + \\frac{1}{3} \\sin(2\\pi \\cdot 3f t)
     - \\frac{1}{4} \\sin(2\\pi \\cdot 4f t)
     + \\frac{1}{5} \\sin(2\\pi \\cdot 5f t)
-    - \\cdots
+    - \\frac{1}{6} \\sin(2\\pi \\cdot 6f t)
+    + \\frac{1}{7} \\sin(2\\pi \\cdot 7f t)
+    - \\frac{1}{8} \\sin(2\\pi \\cdot 8f t)
+    + \\frac{1}{9} \\sin(2\\pi \\cdot 9f t)
 \\right]
 $$
-`,
-    harmonics: (f) => {
-      let arr = [];
-      for(let n=1;n<=9;n++) {
-        let amp = 2/(Math.PI*n)*(n%2===0?-1:1);
-        arr.push({freq: n*f, amp: Math.abs(amp), phase: amp>0?0:180});
-      }
-      return arr;
-    }
+`
   }
 };
-
 let sampleOscillators = [];
 let sampleIsPlaying = false;
 let sampleWaveType = '';
@@ -339,57 +320,43 @@ let sampleBaseFreq = 440;
 let sampleDrawRequest = null;
 
 function showSampleMode(type) {
-  unlockAudioContext();
   document.body.classList.add('show-sample');
   stopSampleOscillators();
   sampleOscillators = [];
   let harm = sampleDefs[type].harmonics(sampleBaseFreq);
   for(let i=0;i<harm.length;i++) {
     let h = harm[i];
-    let osc = createOscillator(h.freq, h.amp, h.phase, sampleDefs[type].color);
-    osc.amp = h.amp;
-    osc.active = true;
-    sampleOscillators.push(osc);
+    sampleOscillators.push({freq: h.freq, amp: h.amp, phase: h.phase, active: true, color: sampleDefs[type].color});
   }
   updateSampleOscListUI();
-  // LaTeX 수식 표시
   document.getElementById('sample-formula').innerHTML = sampleDefs[type].formulaLatex;
   if(window.MathJax && MathJax.typesetPromise) MathJax.typesetPromise();
   sampleIsPlaying = false;
-  setSampleOscillatorGains();
   document.getElementById('sample-play-btn').textContent = '▶ 재생';
   cancelAnimationFrame(sampleDrawRequest);
   sampleDrawLoop();
 }
-
 function hideSampleMode() {
   stopSampleOscillators();
   document.body.classList.remove('show-sample');
   sampleIsPlaying = false;
   cancelAnimationFrame(sampleDrawRequest);
 }
-
 function stopSampleOscillators() {
-  sampleOscillators.forEach(o=>{
-    try { o.osc.stop(); } catch(e){}
-    try { o.osc.disconnect(); } catch(e){}
-    try { o.gain.disconnect(); } catch(e){}
-  });
   sampleOscillators = [];
 }
-
 function updateSampleOscListUI() {
   const list = document.getElementById('sample-osc-list');
   list.innerHTML = '';
   sampleOscillators.forEach((o, idx) => {
     const phiStr = phaseToPiString(o.phase);
-    const formula = `y = ${o.amp ? o.amp.toFixed(3) : o.vol}·sin(2π·${o.freq}·t + ${phiStr})`;
+    const formula = `y = ${o.amp.toFixed(3)}·sin(2π·${o.freq}·t + ${phiStr})`;
     const row = document.createElement('div');
     row.className = 'sample-osc-row';
     row.innerHTML = `
       <label style="color:${o.color}; font-weight:bold;">OSC${idx+1}</label>
       <label>주파수(Hz): ${o.freq}</label>
-      <label>볼륨(A): ${o.amp ? o.amp.toFixed(3) : o.vol}</label>
+      <label>볼륨(A): ${o.amp.toFixed(3)}</label>
       <label>위상(°): ${o.phase}</label>
       <button class="${o.active?'on':'off'}" onclick="toggleSampleOsc(${idx}, this)">${o.active?'ON':'OFF'}</button>
       <span class="formula">${formula}</span>
@@ -399,32 +366,20 @@ function updateSampleOscListUI() {
 }
 window.toggleSampleOsc = (idx, btn) => {
   sampleOscillators[idx].active = !sampleOscillators[idx].active;
-  setSampleOscillatorGains();
   updateSampleOscListUI();
 };
-
-function setSampleOscillatorGains() {
-  sampleOscillators.forEach(o => {
-    o.gain.gain.value = (sampleIsPlaying && o.active) ? (o.amp ? o.amp : o.vol) : 0;
-  });
-}
-
 document.getElementById('sample-play-btn').onclick = () => {
-  unlockAudioContext();
   sampleIsPlaying = !sampleIsPlaying;
-  setSampleOscillatorGains();
   document.getElementById('sample-play-btn').textContent = sampleIsPlaying ? '⏸ 일시정지' : '▶ 재생';
 };
-
 document.getElementById('back-btn').onclick = () => {
   hideSampleMode();
 };
-
 document.getElementById('btn-tri').onclick = ()=>showSampleMode('triangle');
 document.getElementById('btn-square').onclick = ()=>showSampleMode('square');
 document.getElementById('btn-saw').onclick = ()=>showSampleMode('saw');
 
-// --------- 그래프 그리기 ---------
+// 그래프
 function drawAxes(ctx, width, height, yMin, yMax) {
   ctx.save();
   ctx.strokeStyle = "#888";
@@ -483,7 +438,6 @@ function drawAxes(ctx, width, height, yMin, yMax) {
   }
   ctx.restore();
 }
-
 function draw() {
   const canvas = document.getElementById('waveform');
   const ctx = canvas.getContext('2d');
@@ -510,7 +464,7 @@ function draw() {
   oscillators.forEach((o,idx)=>{
     if(o.active) {
       ctx.beginPath();
-      ctx.strokeStyle = o.color;
+      ctx.strokeStyle = "#2196f3";
       ctx.lineWidth = 2;
       ctx.globalAlpha = 1;
       for(let i=0; i<n; i++) {
@@ -535,7 +489,7 @@ function draw() {
       ctx.lineTo(40 + (canvas.width-60), canvas.height/2);
       ctx.lineTo(40, canvas.height/2);
       ctx.closePath();
-      ctx.fillStyle = o.color;
+      ctx.fillStyle = "#2196f3";
       ctx.fill();
       ctx.globalAlpha = 1;
     }
@@ -566,7 +520,7 @@ function sampleDrawLoop() {
     if(o.active) {
       for(let i=0; i<n; i++) {
         const phi = o.phase*Math.PI/180;
-        const y = Math.sin(2*Math.PI*o.freq*t[i] + phi)*(o.amp?o.amp:o.vol);
+        const y = Math.sin(2*Math.PI*o.freq*t[i] + phi)*o.amp;
         sum[i] += y;
       }
     }
@@ -585,7 +539,7 @@ function sampleDrawLoop() {
       ctx.globalAlpha = 1;
       for(let i=0; i<n; i++) {
         const phi = o.phase*Math.PI/180;
-        const y = Math.sin(2*Math.PI*o.freq*t[i] + phi)*(o.amp?o.amp:o.vol);
+        const y = Math.sin(2*Math.PI*o.freq*t[i] + phi)*o.amp;
         const px = 40 + (canvas.width-60)*t[i]/0.02;
         const py = canvas.height/2 - (y-((yMax+yMin)/2))*(canvas.height-40)/(yMax-yMin);
         if(i===0) ctx.moveTo(px,py);
@@ -596,7 +550,7 @@ function sampleDrawLoop() {
       ctx.beginPath();
       for(let i=0; i<n; i++) {
         const phi = o.phase*Math.PI/180;
-        const y = Math.sin(2*Math.PI*o.freq*t[i] + phi)*(o.amp?o.amp:o.vol);
+        const y = Math.sin(2*Math.PI*o.freq*t[i] + phi)*o.amp;
         const px = 40 + (canvas.width-60)*t[i]/0.02;
         const py = canvas.height/2 - (y-((yMax+yMin)/2))*(canvas.height-40)/(yMax-yMin);
         if(i===0) ctx.moveTo(px,py);
