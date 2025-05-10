@@ -850,6 +850,37 @@ function unlockAudioContext() {
 }
 document.body.addEventListener('mousedown', unlockAudioContext, {once:true});
 document.body.addEventListener('touchstart', unlockAudioContext, {once:true});
+  // 1. 초기화 버튼
+document.getElementById('reset-btn').onclick = () => {
+  oscillators = [];
+  noiseCancelOn = false;
+  document.getElementById('nc-btn').classList.remove('active');
+  document.getElementById('nc-btn').textContent = '노이즈 캔슬링 OFF';
+  // 추가: 재생 중이면 일시정지
+  if (isPlaying) {
+    isPlaying = false;
+    if (workletNode) workletNode.disconnect();
+    document.getElementById('play-btn').textContent = '▶ 재생';
+  }
+  updateOscListUI();
+};
+
+// 2. 오실레이터 삭제
+window.removeOsc = (idx) => {
+  oscillators.splice(idx, 1);
+  // 추가: 오실레이터가 0개면 일시정지 + 노이즈 캔슬링 OFF
+  if (oscillators.length === 0) {
+    noiseCancelOn = false;
+    document.getElementById('nc-btn').classList.remove('active');
+    document.getElementById('nc-btn').textContent = '노이즈 캔슬링 OFF';
+    if (isPlaying) {
+      isPlaying = false;
+      if (workletNode) workletNode.disconnect();
+      document.getElementById('play-btn').textContent = '▶ 재생';
+    }
+  }
+  updateOscListUI();
+};
 </script>
 </body>
 </html>
