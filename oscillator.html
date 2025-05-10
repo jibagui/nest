@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <title>실시간 사인파 합성기 (자동 y축)</title>
+  <title>실시간 사인파 합성기 (자동 y축, 겹침 없는 눈금)</title>
   <style>
     body { font-family: sans-serif; background: #f4f4f4; margin: 0; padding: 0; }
     #controls { background: #fff; padding: 20px; border-bottom: 1px solid #ddd; }
@@ -144,9 +144,9 @@ window.removeOsc = (idx) => {
 document.getElementById('add-btn').onclick = () => {
   unlockAudioContext();
   const color = randomColor();
-  const freq = 440 + Math.floor(Math.random()*200-100);
+  const freq = 440; // 주파수 고정
   const vol = 0.5;
-  const phase = 0; // 위상은 0도로 고정(랜덤 아님)
+  const phase = 0; // 위상 고정
   const osc = createOscillator(freq, vol, phase, color);
   oscillators.push(osc);
   updateOscListUI();
@@ -167,7 +167,7 @@ document.getElementById('play-btn').onclick = () => {
 
 updateOscListUI();
 
-// 좌표평면 그리기 함수 (y축 자동 스케일)
+// 좌표평면 그리기 함수 (y축 자동 스케일, 눈금 겹침 방지)
 function drawAxes(ctx, width, height, tRange, yMin, yMax) {
   ctx.save();
   ctx.strokeStyle = "#888";
@@ -198,9 +198,22 @@ function drawAxes(ctx, width, height, tRange, yMin, yMax) {
     ctx.fillText(`${ms}ms`, x-12, height/2+20);
   }
 
-  // Y축 눈금 (자동)
+  // Y축 눈금 (자동, 겹침 방지)
   let range = yMax - yMin;
-  let step = Math.pow(10, Math.floor(Math.log10(range))-1);
+  let idealSteps = Math.floor((height-40)/32); // 32px 이상 간격 유지
+  let step = Math.pow(10, Math.floor(Math.log10(range)));
+  let bestStep = step;
+  let bestCount = 1000;
+  // 1, 2, 5, 10 계열로 적절히 맞춤
+  [1,2,5].forEach(f=>{
+    let s = f*step;
+    let cnt = Math.ceil(range/s);
+    if(cnt<=idealSteps && cnt>1 && Math.abs(cnt-idealSteps)<Math.abs(bestCount-idealSteps)) {
+      bestStep = s;
+      bestCount = cnt;
+    }
+  });
+  step = bestStep;
   let yStart = Math.ceil(yMin/step)*step;
   let yEnd = Math.floor(yMax/step)*step;
   for(let a=yStart; a<=yEnd+step/2; a+=step) {
