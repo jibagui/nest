@@ -11,11 +11,22 @@
     .osc-row input[type="number"], .sample-osc-row input[type="number"] { width: 70px; }
     .osc-row label, .sample-osc-row label { margin-right: 5px; }
     .osc-row button, .sample-osc-row button { margin-left: 10px; }
-    #osc-btns, #sample-osc-btns { margin-top: 10px; }
-    #canvas-wrap, #sample-canvas-wrap { text-align: center; margin: 0; background: #fff; }
-    canvas { border: 1px solid #bbb; margin: 20px auto; background: #fafafa; }
+    .osc-btn, .sample-osc-btn {
+      display: inline-block;
+      min-width: 60px;
+      min-height: 36px;
+      padding: 0 16px;
+      font-size: 1em;
+      border: none;
+      border-radius: 6px;
+      margin-left: 10px;
+      vertical-align: middle;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
     .on { background: #4caf50; color: #fff; }
     .off { background: #eee; color: #444; }
+    .del { background: #e53935; color: #fff; }
     #play-btn, #sample-play-btn, #back-btn, .osc-util-btn {
       font-size: 1.2em; padding: 0.7em 2em; border: none; border-radius: 8px;
       background: #2196f3; color: #fff; margin-bottom: 1em; cursor: pointer;
@@ -112,9 +123,9 @@
   </div>
   <div id="sample-buttons">
     <button class="wave-btn" id="btn-tri">
-      <!-- 한 주기 삼각파 -->
+      <!-- 한 주기 삼각파: 1 2 1 0 1 패턴 -->
       <svg viewBox="0 0 80 40">
-        <polyline points="0,40 40,0 80,40" fill="none" stroke="#2196f3" stroke-width="4"/>
+        <polyline points="0,20 20,0 40,20 60,40 80,20" fill="none" stroke="#2196f3" stroke-width="4"/>
       </svg>
       <span>Triangle</span>
     </button>
@@ -244,8 +255,8 @@ function updateOscListUI() {
       <input type="number" value="${o.vol}" min="0" max="1" step="0.01" onchange="setVol(${idx}, this.value)">
       <label>위상(°):</label>
       <input type="number" value="${o.phase}" min="0" max="360" step="1" onchange="setPhase(${idx}, this.value)">
-      <button class="${o.active?'on':'off'}" onclick="toggleOsc(${idx}, this)">${o.active?'ON':'OFF'}</button>
-      <button onclick="removeOsc(${idx})">삭제</button>
+      <button class="osc-btn ${o.active?'on':'off'}" onclick="toggleOsc(${idx}, this)">${o.active?'ON':'OFF'}</button>
+      <button class="osc-btn del" onclick="removeOsc(${idx})">삭제</button>
       <span class="formula">${formula}</span>
     `;
     list.appendChild(row);
@@ -281,7 +292,6 @@ document.getElementById('reset-btn').onclick = () => {
   document.getElementById('nc-btn').textContent = '노이즈 캔슬링 OFF';
   updateOscListUI();
 };
-// 노이즈 캔슬링 버튼(기본 모드) - 활성화(ON) 오실레이터만 반대 위상 생성
 document.getElementById('nc-btn').onclick = () => {
   if (!noiseCancelOn) {
     noiseCancelOscIdxs = [];
@@ -318,7 +328,7 @@ document.getElementById('play-btn').onclick = async () => {
   isPlaying = !isPlaying;
   if (isPlaying) {
     workletNode.connect(audioCtx.destination);
-    document.getElementById('play-btn').textContent = 'Ⅱ 일시정지';
+    document.getElementById('play-btn').innerHTML = '<span style="font-weight:bold;font-size:1.3em;letter-spacing:0.1em;">Ⅱ</span> 일시정지';
   } else {
     workletNode.disconnect();
     document.getElementById('play-btn').textContent = '▶ 재생';
@@ -327,7 +337,6 @@ document.getElementById('play-btn').onclick = async () => {
 oscillators = [];
 updateOscListUI();
 
-// 샘플 모드
 const sampleDefs = {
   'triangle': {
     name: '삼각파 (Triangle Wave)',
@@ -524,8 +533,8 @@ function updateSampleOscListUI() {
       <input type="number" value="${o.amp}" min="0" max="1" step="0.01" onchange="setSampleAmp(${idx}, this.value)">
       <label>위상(°):</label>
       <input type="number" value="${o.phase}" min="0" max="360" step="1" onchange="setSamplePhase(${idx}, this.value)">
-      <button class="${o.active?'on':'off'}" onclick="toggleSampleOsc(${idx}, this)">${o.active?'ON':'OFF'}</button>
-      <button onclick="removeSampleOsc(${idx})">삭제</button>
+      <button class="sample-osc-btn ${o.active?'on':'off'}" onclick="toggleSampleOsc(${idx}, this)">${o.active?'ON':'OFF'}</button>
+      <button class="sample-osc-btn del" onclick="removeSampleOsc(${idx})">삭제</button>
       <span class="formula">${formula}</span>
     `;
     list.appendChild(row);
@@ -567,7 +576,6 @@ document.getElementById('sample-reset-btn').onclick = () => {
   document.getElementById('sample-nc-btn').textContent = '노이즈 캔슬링 OFF';
   updateSampleOscListUI();
 };
-// 노이즈 캔슬링 버튼(샘플 모드) - 활성화(ON) 오실레이터만 반대 위상 생성
 document.getElementById('sample-nc-btn').onclick = () => {
   if (!sampleNoiseCancelOn) {
     sampleNoiseCancelOscIdxs = [];
@@ -605,7 +613,7 @@ document.getElementById('sample-play-btn').onclick = async () => {
   sampleIsPlayingFlag = sampleIsPlaying;
   if (sampleIsPlaying) {
     sampleWorkletNode.connect(audioCtx.destination);
-    document.getElementById('sample-play-btn').textContent = 'Ⅱ 일시정지';
+    document.getElementById('sample-play-btn').innerHTML = '<span style="font-weight:bold;font-size:1.3em;letter-spacing:0.1em;">Ⅱ</span> 일시정지';
   } else {
     sampleWorkletNode.disconnect();
     document.getElementById('sample-play-btn').textContent = '▶ 재생';
@@ -618,7 +626,7 @@ document.getElementById('btn-tri').onclick = ()=>showSampleMode('triangle');
 document.getElementById('btn-square').onclick = ()=>showSampleMode('square');
 document.getElementById('btn-saw').onclick = ()=>showSampleMode('saw');
 
-// 그래프 (0ms 눈금 오른쪽 이동)
+// 그래프 (0ms 눈금만 오른쪽 이동)
 function drawAxes(ctx, width, height, yMin, yMax) {
   ctx.save();
   ctx.strokeStyle = "#888";
@@ -639,12 +647,9 @@ function drawAxes(ctx, width, height, yMin, yMax) {
   ctx.lineTo(40, height-10);
   ctx.stroke();
 
-  // x축 눈금 (0ms 오른쪽으로 이동)
-  const zeroX = 48;
+  // x축 눈금 (0ms만 오른쪽 이동)
   for(let ms=0; ms<=20; ms+=5) {
-    let x;
-    if (ms === 0) x = zeroX;
-    else x = 40 + (width-60)*(ms/20);
+    let x = (ms === 0) ? 48 : 40 + (width-60)*(ms/20);
     ctx.beginPath();
     ctx.moveTo(x, height/2-5);
     ctx.lineTo(x, height/2+5);
