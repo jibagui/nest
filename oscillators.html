@@ -44,6 +44,20 @@
       padding: 2px 8px;
       display: inline-block;
     }
+    #canvas-wrap, #sample-canvas-wrap {
+      text-align: center;
+      margin: 0 auto;
+      background: #fff;
+      width: 100%;
+      max-width: 900px;
+      box-sizing: border-box;
+    }
+    canvas {
+      border: 1px solid #bbb;
+      background: #fafafa;
+      margin: 20px auto;
+      display: block;
+    }
     #sample-buttons {
       display: flex; gap: 20px; justify-content: center; margin: 36px 0 24px 0;
     }
@@ -626,7 +640,7 @@ document.getElementById('btn-tri').onclick = ()=>showSampleMode('triangle');
 document.getElementById('btn-square').onclick = ()=>showSampleMode('square');
 document.getElementById('btn-saw').onclick = ()=>showSampleMode('saw');
 
-// 그래프 (0ms 눈금만 오른쪽 이동)
+// 그래프 (눈금은 그대로, '0ms' 텍스트만 오른쪽 이동)
 function drawAxes(ctx, width, height, yMin, yMax) {
   ctx.save();
   ctx.strokeStyle = "#888";
@@ -647,14 +661,18 @@ function drawAxes(ctx, width, height, yMin, yMax) {
   ctx.lineTo(40, height-10);
   ctx.stroke();
 
-  // x축 눈금 (0ms만 오른쪽 이동)
+  // x축 눈금 (0ms 텍스트만 오른쪽 이동)
   for(let ms=0; ms<=20; ms+=5) {
-    let x = (ms === 0) ? 48 : 40 + (width-60)*(ms/20);
+    let x = 40 + (width-60)*(ms/20);
     ctx.beginPath();
     ctx.moveTo(x, height/2-5);
     ctx.lineTo(x, height/2+5);
     ctx.stroke();
-    ctx.fillText(`${ms}ms`, x-12, height/2+20);
+    if(ms === 0) {
+      ctx.fillText(`${ms}ms`, x + 12, height/2 + 20);
+    } else {
+      ctx.fillText(`${ms}ms`, x - 12, height/2 + 20);
+    }
   }
 
   // y축 눈금
