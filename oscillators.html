@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <title>실시간 합성파 생성가</title>
+  <title>실시간 합성파 생성기</title>
   <style>
     body { font-family: sans-serif; background: #f4f4f4; margin: 0; padding: 0; }
     #controls, #sample-controls { background: #fff; padding: 20px; border-bottom: 1px solid #ddd; }
@@ -81,6 +81,7 @@
       max-width: 100% !important;
       box-sizing: border-box;
     }
+    h1 { text-align: center; font-size: 2em; margin: 32px 0 16px 0; }
   </style>
   <script>
     window.MathJax = {
@@ -97,6 +98,7 @@
   <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
 </head>
 <body>
+  <h1>실시간 합성파 생성기</h1>
   <div id="controls">
     <button id="play-btn">▶ 재생</button>
     <div id="osc-list"></div>
@@ -147,7 +149,6 @@ function randomColor(alpha=0.35) {
   return `rgba(${r},${g},${b},${alpha})`;
 }
 function randomFreq() {
-  // 60~1200Hz, 로그 스케일
   return Math.round(Math.pow(2, Math.random()*6 + Math.log2(60)));
 }
 function randomVol() {
@@ -281,15 +282,16 @@ document.getElementById('reset-btn').onclick = () => {
 document.getElementById('nc-btn').onclick = () => {
   if (!noiseCancelOn) {
     noiseCancelOscIdxs = [];
-    const origLen = oscillators.length;
-    for (let i = 0; i < origLen; ++i) {
+    // ★ ON 상태인 오실레이터만 복제 ★
+    for (let i = 0; i < oscillators.length; ++i) {
       const o = oscillators[i];
+      if (!o.active) continue;
       const color = randomColor();
       oscillators.push({
         freq: o.freq,
         vol: o.vol,
         phase: (o.phase + 180)%360,
-        active: o.active,
+        active: true,
         color
       });
       noiseCancelOscIdxs.push(oscillators.length-1);
@@ -548,7 +550,6 @@ document.getElementById('sample-rand-btn').onclick = () => {
   updateSampleOscListUI();
 };
 document.getElementById('sample-reset-btn').onclick = () => {
-  // 현재 샘플 파형의 기본 오실레이터만 다시 생성
   const harm = sampleDefs[sampleWaveType].harmonics(sampleBaseFreq);
   sampleOscillators = [];
   for(let i=0;i<harm.length;i++) {
@@ -564,15 +565,16 @@ document.getElementById('sample-reset-btn').onclick = () => {
 document.getElementById('sample-nc-btn').onclick = () => {
   if (!sampleNoiseCancelOn) {
     sampleNoiseCancelOscIdxs = [];
-    const origLen = sampleOscillators.length;
-    for (let i = 0; i < origLen; ++i) {
+    // ★ ON 상태인 오실레이터만 복제 ★
+    for (let i = 0; i < sampleOscillators.length; ++i) {
       const o = sampleOscillators[i];
+      if (!o.active) continue;
       const color = randomColor();
       sampleOscillators.push({
         freq: o.freq,
         amp: o.amp,
         phase: (o.phase + 180)%360,
-        active: o.active,
+        active: true,
         color
       });
       sampleNoiseCancelOscIdxs.push(sampleOscillators.length-1);
