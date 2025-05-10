@@ -188,7 +188,6 @@ const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 let oscillators = [];
 let isPlaying = false;
 let noiseCancelOn = false;
-let noiseCancelOscIdxs = [];
 
 let sampleOscillators = [];
 let sampleIsPlaying = false;
@@ -301,34 +300,36 @@ document.getElementById('rand-btn').onclick = () => {
 document.getElementById('reset-btn').onclick = () => {
   oscillators = [];
   noiseCancelOn = false;
-  noiseCancelOscIdxs = [];
   document.getElementById('nc-btn').classList.remove('active');
   document.getElementById('nc-btn').textContent = '노이즈 캔슬링 OFF';
   updateOscListUI();
 };
+// 노이즈 캔슬링 ON/OFF 개선: 복제 오실레이터에 ncTag 부여, OFF 시 ncTag만 삭제
 document.getElementById('nc-btn').onclick = () => {
+  const tag = 'main';
   if (!noiseCancelOn) {
-    noiseCancelOscIdxs = [];
-    const origLen = oscillators.length;
-    for (let i = 0; i < origLen; ++i) {
+    // 노이즈 캔슬링 ON: 복제 오실레이터에 ncTag: 'main' 부여
+    const newOscs = [];
+    for (let i = 0; i < oscillators.length; ++i) {
       const o = oscillators[i];
       if (!o.active) continue;
       const color = randomColor();
-      oscillators.push({
+      newOscs.push({
         freq: o.freq,
         vol: o.vol,
         phase: (o.phase + 180)%360,
         active: o.active,
-        color
+        color,
+        ncTag: tag
       });
-      noiseCancelOscIdxs.push(oscillators.length-1);
     }
+    oscillators = oscillators.concat(newOscs);
     noiseCancelOn = true;
     document.getElementById('nc-btn').classList.add('active');
     document.getElementById('nc-btn').textContent = '노이즈 캔슬링 ON';
   } else {
-    noiseCancelOscIdxs.sort((a,b)=>b-a).forEach(idx=>oscillators.splice(idx,1));
-    noiseCancelOscIdxs = [];
+    // 노이즈 캔슬링 OFF: ncTag가 'main'인 오실레이터만 삭제
+    oscillators = oscillators.filter(o => o.ncTag !== tag);
     noiseCancelOn = false;
     document.getElementById('nc-btn').classList.remove('active');
     document.getElementById('nc-btn').textContent = '노이즈 캔슬링 OFF';
@@ -351,6 +352,7 @@ document.getElementById('play-btn').onclick = async () => {
 oscillators = [];
 updateOscListUI();
 
+/* 샘플 모드, drawAxes, draw, sampleDrawLoop 등 생략 없이 모두 포함 */
 const sampleDefs = {
   'triangle': {
     name: '삼각파 (Triangle Wave)',
@@ -577,7 +579,6 @@ document.getElementById('sample-rand-btn').onclick = () => {
   updateSampleOscListUI();
 };
 document.getElementById('sample-reset-btn').onclick = () => {
-  // 현재 샘플 파형의 기본 오실레이터만 다시 생성
   const harm = sampleDefs[sampleWaveType].harmonics(sampleBaseFreq);
   sampleOscillators = [];
   for(let i=0;i<harm.length;i++) {
@@ -591,6 +592,8 @@ document.getElementById('sample-reset-btn').onclick = () => {
   updateSampleOscListUI();
 };
 document.getElementById('sample-nc-btn').onclick = () => {
+  // 태그는 각 샘플 타입별로 다르게
+  let tag = sampleWaveType || 'sample';
   if (!sampleNoiseCancelOn) {
     sampleNoiseCancelOscIdxs = [];
     const origLen = sampleOscillators.length;
@@ -603,7 +606,8 @@ document.getElementById('sample-nc-btn').onclick = () => {
         amp: o.amp,
         phase: (o.phase + 180)%360,
         active: o.active,
-        color
+        color,
+        ncTag: tag
       });
       sampleNoiseCancelOscIdxs.push(sampleOscillators.length-1);
     }
@@ -611,15 +615,14 @@ document.getElementById('sample-nc-btn').onclick = () => {
     document.getElementById('sample-nc-btn').classList.add('active');
     document.getElementById('sample-nc-btn').textContent = '노이즈 캔슬링 ON';
   } else {
-    sampleNoiseCancelOscIdxs.sort((a,b)=>b-a).forEach(idx=>sampleOscillators.splice(idx,1));
-    sampleNoiseCancelOscIdxs = [];
+    sampleOscillators = sampleOscillators.filter(o => o.ncTag !== tag);
     sampleNoiseCancelOn = false;
+    sampleNoiseCancelOscIdxs = [];
     document.getElementById('sample-nc-btn').classList.remove('active');
     document.getElementById('sample-nc-btn').textContent = '노이즈 캔슬링 OFF';
   }
   updateSampleOscListUI();
 };
-
 document.getElementById('sample-play-btn').onclick = async () => {
   await setupSampleWorklet();
   if (audioCtx.state === 'suspended') await audioCtx.resume();
@@ -640,7 +643,6 @@ document.getElementById('btn-tri').onclick = ()=>showSampleMode('triangle');
 document.getElementById('btn-square').onclick = ()=>showSampleMode('square');
 document.getElementById('btn-saw').onclick = ()=>showSampleMode('saw');
 
-// 그래프 (눈금은 그대로, '0ms' 텍스트만 오른쪽 이동)
 function drawAxes(ctx, width, height, yMin, yMax) {
   ctx.save();
   ctx.strokeStyle = "#888";
