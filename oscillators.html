@@ -224,6 +224,16 @@ function updateNcBtnState() {
     ncBtn.classList.remove('disabled');
   }
 }
+function updateSampleNcBtnState() {
+  const ncBtn = document.getElementById('sample-nc-btn');
+  if (sampleOscillators.length === 0) {
+    ncBtn.disabled = true;
+    ncBtn.classList.add('disabled');
+  } else {
+    ncBtn.disabled = false;
+    ncBtn.classList.remove('disabled');
+  }
+}
 
 async function setupWorklet() {
   if (workletReady) return;
@@ -551,6 +561,7 @@ function showSampleMode(type) {
       sampleWorkletNode.disconnect();
     }
   });
+  updateSampleNcBtnState();
 }
 function hideSampleMode() {
   if (sampleWaveType) {
@@ -592,6 +603,7 @@ function updateSampleOscListUI() {
     list.appendChild(row);
   });
   updateSampleWorkletOsc();
+  updateSampleNcBtnState();
 }
 window.setSampleFreq = (idx, val) => { sampleOscillators[idx].freq = Number(val); updateSampleOscListUI(); }
 window.setSampleAmp = (idx, val) => { sampleOscillators[idx].amp = Number(val); updateSampleOscListUI(); }
@@ -628,6 +640,7 @@ document.getElementById('sample-reset-btn').onclick = () => {
   updateSampleOscListUI();
 };
 document.getElementById('sample-nc-btn').onclick = () => {
+  if (sampleOscillators.length === 0) return;
   let tag = sampleWaveType || 'sample';
   if (!sampleNoiseCancelOn) {
     sampleNoiseCancelOscIdxs = [];
