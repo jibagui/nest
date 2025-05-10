@@ -311,7 +311,6 @@ document.getElementById('reset-btn').onclick = () => {
 document.getElementById('nc-btn').onclick = () => {
   const tag = 'main';
   if (!noiseCancelOn) {
-    // 노이즈 캔슬링 ON: 복제 오실레이터에 ncTag: 'main' 부여
     const newOscs = [];
     for (let i = 0; i < oscillators.length; ++i) {
       const o = oscillators[i];
@@ -331,7 +330,6 @@ document.getElementById('nc-btn').onclick = () => {
     document.getElementById('nc-btn').classList.add('active');
     document.getElementById('nc-btn').textContent = '노이즈 캔슬링 ON';
   } else {
-    // 노이즈 캔슬링 OFF: ncTag가 'main'인 오실레이터만 삭제
     oscillators = oscillators.filter(o => o.ncTag !== tag);
     noiseCancelOn = false;
     document.getElementById('nc-btn').classList.remove('active');
@@ -352,10 +350,12 @@ document.getElementById('play-btn').onclick = async () => {
     document.getElementById('play-btn').textContent = '▶ 재생';
   }
 };
-oscillators = [];
+if (oscillators.length === 0) {
+  // 기본 오실레이터 1개 자동 추가(소리 안나는 문제 방지)
+  oscillators.push({freq:440, vol:0.5, phase:0, active:true, color: randomColor()});
+}
 updateOscListUI();
 
-/* 샘플 모드, drawAxes, draw, sampleDrawLoop 등 생략 없이 모두 포함 */
 const sampleDefs = {
   'triangle': {
     name: '삼각파 (Triangle Wave)',
