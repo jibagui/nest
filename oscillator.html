@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <title>실시간 사인파 합성기 (좌표평면, 라디안 위상)</title>
+  <title>실시간 사인파 합성기 (자동 y축)</title>
   <style>
     body { font-family: sans-serif; background: #f4f4f4; margin: 0; padding: 0; }
     #controls { background: #fff; padding: 20px; border-bottom: 1px solid #ddd; }
@@ -146,7 +146,7 @@ document.getElementById('add-btn').onclick = () => {
   const color = randomColor();
   const freq = 440 + Math.floor(Math.random()*200-100);
   const vol = 0.5;
-  const phase = Math.floor(Math.random()*360);
+  const phase = 0; // 위상은 0도로 고정(랜덤 아님)
   const osc = createOscillator(freq, vol, phase, color);
   oscillators.push(osc);
   updateOscListUI();
@@ -167,8 +167,8 @@ document.getElementById('play-btn').onclick = () => {
 
 updateOscListUI();
 
-// 좌표평면 그리기 함수
-function drawAxes(ctx, width, height, tRange, yRange) {
+// 좌표평면 그리기 함수 (y축 자동 스케일)
+function drawAxes(ctx, width, height, tRange, yMin, yMax) {
   ctx.save();
   ctx.strokeStyle = "#888";
   ctx.lineWidth = 1;
@@ -198,31 +198,53 @@ function drawAxes(ctx, width, height, tRange, yRange) {
     ctx.fillText(`${ms}ms`, x-12, height/2+20);
   }
 
-  // Y축 눈금 (-1~+1)
-  for(let a=-1; a<=1.01; a+=0.5) {
-    let y = height/2 - a*(height-40)/2;
+  // Y축 눈금 (자동)
+  let range = yMax - yMin;
+  let step = Math.pow(10, Math.floor(Math.log10(range))-1);
+  let yStart = Math.ceil(yMin/step)*step;
+  let yEnd = Math.floor(yMax/step)*step;
+  for(let a=yStart; a<=yEnd+step/2; a+=step) {
+    let y = height/2 - (a-((yMax+yMin)/2))*(height-40)/range;
     ctx.beginPath();
     ctx.moveTo(35, y);
     ctx.lineTo(45, y);
     ctx.stroke();
-    ctx.fillText(a.toFixed(1), 10, y+4);
+    ctx.fillText(a.toFixed(2), 10, y+4);
   }
 
   ctx.restore();
 }
 
-// 실시간 파형 그리기
+// 실시간 파형 그리기 (y축 자동 스케일)
 function draw() {
   const canvas = document.getElementById('waveform');
   const ctx = canvas.getContext('2d');
   ctx.clearRect(0,0,canvas.width,canvas.height);
 
-  // 좌표평면
-  drawAxes(ctx, canvas.width, canvas.height, [0,0.02], [-1,1]);
-
   const n = 800;
   const t = Array.from({length:n}, (_,i)=>i/n*0.02); // 0~0.02초(20ms)
   let sum = Array(n).fill(0);
+
+  // 합성파 최대/최소 계산
+  let yMax = -Infinity, yMin = Infinity;
+  oscillators.forEach((o,idx)=>{
+    if(o.active) {
+      for(let i=0; i<n; i++) {
+        const phi = o.phase*Math.PI/180;
+        const y = Math.sin(2*Math.PI*o.freq*t[i] + phi)*o.vol;
+        sum[i] += y;
+      }
+    }
+  });
+  for(let i=0; i<n; i++) {
+    if(sum[i] > yMax) yMax = sum[i];
+    if(sum[i] < yMin) yMin = sum[i];
+  }
+  // y축 최소/최대가 너무 가까우면 -1~+1로 고정
+  if (yMax - yMin < 0.1) { yMax = 1; yMin = -1; }
+
+  // 좌표평면
+  drawAxes(ctx, canvas.width, canvas.height, [0,0.02], yMin, yMax);
 
   // 각 오실레이터 파형 그리기
   oscillators.forEach((o,idx)=>{
@@ -234,9 +256,8 @@ function draw() {
       for(let i=0; i<n; i++) {
         const phi = o.phase*Math.PI/180;
         const y = Math.sin(2*Math.PI*o.freq*t[i] + phi)*o.vol;
-        sum[i] += y;
         const px = 40 + (canvas.width-60)*t[i]/0.02;
-        const py = canvas.height/2 - y*(canvas.height-40)/2;
+        const py = canvas.height/2 - (y-((yMax+yMin)/2))*(canvas.height-40)/(yMax-yMin);
         if(i===0) ctx.moveTo(px,py);
         else ctx.lineTo(px,py);
       }
@@ -247,7 +268,7 @@ function draw() {
         const phi = o.phase*Math.PI/180;
         const y = Math.sin(2*Math.PI*o.freq*t[i] + phi)*o.vol;
         const px = 40 + (canvas.width-60)*t[i]/0.02;
-        const py = canvas.height/2 - y*(canvas.height-40)/2;
+        const py = canvas.height/2 - (y-((yMax+yMin)/2))*(canvas.height-40)/(yMax-yMin);
         if(i===0) ctx.moveTo(px,py);
         else ctx.lineTo(px,py);
       }
@@ -266,7 +287,7 @@ function draw() {
   ctx.lineWidth = 3;
   for(let i=0; i<n; i++) {
     const px = 40 + (canvas.width-60)*t[i]/0.02;
-    const py = canvas.height/2 - sum[i]*(canvas.height-40)/2;
+    const py = canvas.height/2 - (sum[i]-((yMax+yMin)/2))*(canvas.height-40)/(yMax-yMin);
     if(i===0) ctx.moveTo(px,py);
     else ctx.lineTo(px,py);
   }
