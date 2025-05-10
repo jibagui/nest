@@ -1,0 +1,14 @@
+<button onclick="play()">사인파 재생</button>
+<script>
+function play() {
+  const ctx = new (window.AudioContext || window.webkitAudioContext)();
+  const osc = ctx.createOscillator();
+  osc.type = 'sine';
+  osc.frequency.value = 440;
+  osc.connect(ctx.destination);
+  ctx.resume().then(()=>{
+    osc.start();
+    setTimeout(()=>osc.stop(), 1000);
+  });
+}
+</script>
