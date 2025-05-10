@@ -87,7 +87,6 @@
     <canvas id="sample-waveform" width="820" height="340"></canvas>
   </div>
 <script>
-// --------- 기존 일반 모드 코드 ---------
 function randomColor(alpha=0.35) {
   const r = Math.floor(Math.random()*200+30);
   const g = Math.floor(Math.random()*200+30);
@@ -309,29 +308,32 @@ let sampleBaseFreq = 440;
 let sampleDrawRequest = null;
 
 function showSampleMode(type) {
-  sampleWaveType = type;
+  unlockAudioContext();
   document.getElementById('controls').style.display = 'none';
   document.getElementById('canvas-wrap').style.display = 'none';
   document.getElementById('sample-buttons').style.display = 'none';
-  document.getElementById('sample-controls').style.display = '';
-  document.getElementById('sample-canvas-wrap').style.display = '';
-  stopSampleOscillators();
-  sampleOscillators = [];
-  let harm = sampleDefs[type].harmonics(sampleBaseFreq);
-  for(let i=0;i<harm.length;i++) {
-    let h = harm[i];
-    let osc = createOscillator(h.freq, h.amp, h.phase, sampleDefs[type].color);
-    osc.amp = h.amp;
-    osc.active = true;
-    sampleOscillators.push(osc);
-  }
-  updateSampleOscListUI();
-  document.getElementById('sample-formula').textContent = sampleDefs[type].formula(sampleBaseFreq);
-  sampleIsPlaying = false;
-  setSampleOscillatorGains();
-  document.getElementById('sample-play-btn').textContent = '▶ 재생';
-  cancelAnimationFrame(sampleDrawRequest);
-  sampleDrawLoop();
+  // setTimeout으로 UI 렌더링 보장 (iOS WebKit 대응)
+  setTimeout(()=>{
+    document.getElementById('sample-controls').style.display = '';
+    document.getElementById('sample-canvas-wrap').style.display = '';
+    stopSampleOscillators();
+    sampleOscillators = [];
+    let harm = sampleDefs[type].harmonics(sampleBaseFreq);
+    for(let i=0;i<harm.length;i++) {
+      let h = harm[i];
+      let osc = createOscillator(h.freq, h.amp, h.phase, sampleDefs[type].color);
+      osc.amp = h.amp;
+      osc.active = true;
+      sampleOscillators.push(osc);
+    }
+    updateSampleOscListUI();
+    document.getElementById('sample-formula').textContent = sampleDefs[type].formula(sampleBaseFreq);
+    sampleIsPlaying = false;
+    setSampleOscillatorGains();
+    document.getElementById('sample-play-btn').textContent = '▶ 재생';
+    cancelAnimationFrame(sampleDrawRequest);
+    sampleDrawLoop();
+  }, 30); // 30ms 템포로 iOS에서 렌더링 확실히 반영
 }
 
 function hideSampleMode() {
@@ -343,6 +345,8 @@ function hideSampleMode() {
   document.getElementById('sample-canvas-wrap').style.display = 'none';
   sampleIsPlaying = false;
   cancelAnimationFrame(sampleDrawRequest);
+  // 샘플 버튼 다시 보이게
+  setTimeout(()=>{document.getElementById('sample-buttons').style.display = 'flex';},0);
 }
 
 function stopSampleOscillators() {
