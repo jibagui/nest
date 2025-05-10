@@ -62,12 +62,38 @@
       padding: 18px 18px 12px 18px;
       margin: 16px auto 10px auto;
       font-size: 1.15em;
-      max-width: 720px;
+      max-width: 98vw;
+      box-sizing: border-box;
+      overflow-x: auto;
+      word-break: break-word;
+      white-space: normal;
       text-align: left;
     }
+    /* MathJax CHTML output 줄바꿈 */
+    .mjx-container[jax="CHTML"] {
+      overflow-x: auto !important;
+      max-width: 100% !important;
+      box-sizing: border-box;
+    }
   </style>
-  <!-- MathJax for LaTeX rendering -->
-  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  <!-- MathJax for LaTeX rendering, 자동 줄바꿈 옵션 포함 -->
+  <script>
+    window.MathJax = {
+      tex: { displayMath: [['$$','$$'], ['\\[','\\]']] },
+      options: {
+        renderActions: {
+          addMenu: []
+        }
+      },
+      chtml: {
+        displayAlign: 'center',
+        displayIndent: '0',
+        scale: 1,
+        linebreaks: { automatic: true, width: "container" }
+      }
+    };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
 </head>
 <body>
   <div id="controls">
@@ -78,7 +104,6 @@
   <div id="canvas-wrap">
     <canvas id="waveform" width="820" height="340"></canvas>
   </div>
-  <!-- 샘플 버튼은 그래프 아래에 위치 -->
   <div id="sample-buttons">
     <button class="wave-btn" id="btn-tri">
       <svg viewBox="0 0 80 40"><polyline points="0,40 20,0 40,40 60,0 80,40" fill="none" stroke="#2196f3" stroke-width="4"/></svg>
@@ -93,7 +118,6 @@
       <span>Sawtooth</span>
     </button>
   </div>
-  <!-- 샘플 모드 UI -->
   <div id="sample-controls">
     <button id="sample-play-btn">▶ 재생</button>
     <button id="back-btn">← 뒤로가기</button>
@@ -200,7 +224,6 @@ window.removeOsc = (idx) => {
   updateOscListUI();
 };
 
-// 오실레이터 추가 시 재생 중이면 바로 소리
 document.getElementById('add-btn').onclick = () => {
   unlockAudioContext();
   const color = randomColor();
@@ -236,7 +259,7 @@ const sampleDefs = {
     color: '#2196f3',
     N: 9,
     formulaLatex: `
-### 1. 삼각파 (Triangle Wave)
+삼각파 (Triangle Wave)
 $$
 f_{\\text{triangle}}(t) = \\frac{8}{\\pi^2} \\left[
     \\sin(2\\pi f t)
@@ -261,7 +284,7 @@ $$
     color: '#e91e63',
     N: 9,
     formulaLatex: `
-### 2. 사각파 (Square Wave)
+사각파 (Square Wave)
 $$
 f_{\\text{square}}(t) = \\frac{4}{\\pi} \\left[
     \\sin(2\\pi f t)
@@ -286,7 +309,7 @@ $$
     color: '#4caf50',
     N: 9,
     formulaLatex: `
-### 3. 톱니파 (Sawtooth Wave)
+톱니파 (Sawtooth Wave)
 $$
 f_{\\text{sawtooth}}(t) = \\frac{2}{\\pi} \\left[
     \\sin(2\\pi f t)
@@ -531,7 +554,6 @@ function draw() {
 }
 draw();
 
-// 샘플 모드 그래프 (애니메이션 루프)
 function sampleDrawLoop() {
   const canvas = document.getElementById('sample-waveform');
   const ctx = canvas.getContext('2d');
