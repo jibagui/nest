@@ -178,7 +178,6 @@ function randomColor(alpha=0.35) {
   return `rgba(${r},${g},${b},${alpha})`;
 }
 function randomFreq() {
-  // 60~1200Hz, 로그 스케일
   return Math.round(Math.pow(2, Math.random()*6 + Math.log2(60)));
 }
 function randomVol() {
@@ -204,7 +203,6 @@ let sampleWaveType = '';
 let sampleBaseFreq = 440;
 let sampleDrawRequest = null;
 
-// AudioWorklet 기반 합성 엔진
 let workletReady = false;
 let workletNode = null;
 async function setupWorklet() {
@@ -307,7 +305,6 @@ document.getElementById('reset-btn').onclick = () => {
   document.getElementById('nc-btn').textContent = '노이즈 캔슬링 OFF';
   updateOscListUI();
 };
-// 노이즈 캔슬링 ON/OFF 개선: 복제 오실레이터에 ncTag 부여, OFF 시 ncTag만 삭제
 document.getElementById('nc-btn').onclick = () => {
   const tag = 'main';
   if (!noiseCancelOn) {
@@ -337,7 +334,6 @@ document.getElementById('nc-btn').onclick = () => {
   }
   updateOscListUI();
 };
-
 document.getElementById('play-btn').onclick = async () => {
   await setupWorklet();
   if (audioCtx.state === 'suspended') await audioCtx.resume();
@@ -350,13 +346,8 @@ document.getElementById('play-btn').onclick = async () => {
     document.getElementById('play-btn').textContent = '▶ 재생';
   }
 };
-if (oscillators.length === 0) {
-  // 기본 오실레이터 1개 자동 추가(소리 안나는 문제 방지)
-  oscillators.push({freq:440, vol:0.5, phase:0, active:true, color: randomColor()});
-}
 updateOscListUI();
-
-const sampleDefs = {
+  const sampleDefs = {
   'triangle': {
     name: '삼각파 (Triangle Wave)',
     color: '#2196f3',
@@ -595,7 +586,6 @@ document.getElementById('sample-reset-btn').onclick = () => {
   updateSampleOscListUI();
 };
 document.getElementById('sample-nc-btn').onclick = () => {
-  // 태그는 각 샘플 타입별로 다르게
   let tag = sampleWaveType || 'sample';
   if (!sampleNoiseCancelOn) {
     sampleNoiseCancelOscIdxs = [];
@@ -654,19 +644,16 @@ function drawAxes(ctx, width, height, yMin, yMax) {
   ctx.fillStyle = "#888";
   ctx.globalAlpha = 1;
 
-  // x축
   ctx.beginPath();
   ctx.moveTo(40, height/2);
   ctx.lineTo(width-10, height/2);
   ctx.stroke();
 
-  // y축
   ctx.beginPath();
   ctx.moveTo(40, 10);
   ctx.lineTo(40, height-10);
   ctx.stroke();
 
-  // x축 눈금 (0ms 텍스트만 오른쪽 이동)
   for(let ms=0; ms<=20; ms+=5) {
     let x = 40 + (width-60)*(ms/20);
     ctx.beginPath();
@@ -680,7 +667,6 @@ function drawAxes(ctx, width, height, yMin, yMax) {
     }
   }
 
-  // y축 눈금
   let range = yMax - yMin;
   let idealSteps = Math.floor((height-40)/32);
   let step = Math.pow(10, Math.floor(Math.log10(range)));
@@ -855,7 +841,6 @@ function sampleDrawLoop() {
   sampleDrawRequest = requestAnimationFrame(sampleDrawLoop);
 }
 
-// 오디오 컨텍스트 정책 대응: 첫 상호작용 시 resume
 function unlockAudioContext() {
   if (audioCtx.state === 'suspended') {
     audioCtx.resume();
