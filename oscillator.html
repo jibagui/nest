@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <title>실시간 합성파 생성기</title>
+  <title>실시간 합성파 생성기~~^^</title>
   <style>
     body { font-family: sans-serif; background: #f4f4f4; margin: 0; padding: 0; }
     #controls, #sample-controls { background: #fff; padding: 20px; border-bottom: 1px solid #ddd; }
@@ -197,7 +197,7 @@ function updateOscListUI() {
     const row = document.createElement('div');
     row.className = 'osc-row';
     row.innerHTML = `
-      <label style="color:#2196f3; font-weight:bold;">OSC${idx+1}</label>
+      <label style="color:${o.color}; font-weight:bold;">OSC${idx+1}</label>
       <label>주파수(Hz):</label>
       <input type="number" value="${o.freq}" min="20" max="2000" step="1" onchange="setFreq(${idx}, this.value)">
       <label>볼륨(A):</label>
@@ -218,7 +218,8 @@ window.setPhase = (idx, val) => { oscillators[idx].phase = Number(val)%360; upda
 window.toggleOsc = (idx, btn) => { oscillators[idx].active = !oscillators[idx].active; updateOscListUI(); }
 window.removeOsc = (idx) => { oscillators.splice(idx, 1); updateOscListUI(); };
 document.getElementById('add-btn').onclick = () => {
-  oscillators.push({freq:440, vol:0.5, phase:0, active:true});
+  const color = randomColor();
+  oscillators.push({freq:440, vol:0.5, phase:0, active:true, color});
   updateOscListUI();
 };
 
@@ -233,10 +234,8 @@ document.getElementById('play-btn').onclick = async () => {
   }
   document.getElementById('play-btn').textContent = isPlaying ? '⏸ 일시정지' : '▶ 재생';
 };
-oscillators = [
-  {freq: 440, vol: 0.5, phase: 0, active: true},
-  {freq: 440, vol: 0.5, phase: 180, active: true}
-];
+// ★ 오실레이터 초기값 없음 ★
+oscillators = [];
 updateOscListUI();
 
 // 샘플 모드
@@ -261,7 +260,7 @@ $$
       let arr = [];
       for(let n=1;n<=9;n+=2) {
         let amp = 8/(Math.PI*Math.PI)/n/n*(n%4===1?1:-1);
-        arr.push({freq: n*f, amp: Math.abs(amp), phase: amp>0?0:180});
+        arr.push({freq: n*f, amp: Math.abs(amp), phase: amp>0?0:180, color: '#2196f3'});
       }
       return arr;
     }
@@ -286,7 +285,7 @@ $$
       let arr = [];
       for(let n=1;n<=9;n+=2) {
         let amp = 4/(Math.PI*n);
-        arr.push({freq: n*f, amp: Math.abs(amp), phase: amp>0?0:180});
+        arr.push({freq: n*f, amp: Math.abs(amp), phase: amp>0?0:180, color: '#e91e63'});
       }
       return arr;
     }
@@ -310,7 +309,15 @@ f_{\\text{sawtooth}}(t) = \\frac{2}{\\pi} \\left[
     + \\frac{1}{9} \\sin(2\\pi \\cdot 9f t)
 \\right]
 $$
-`
+`,
+    harmonics: (f) => {
+      let arr = [];
+      for(let n=1;n<=9;n++) {
+        let amp = 2/(Math.PI*n)*(n%2===0?-1:1);
+        arr.push({freq: n*f, amp: Math.abs(amp), phase: amp>0?0:180, color: '#4caf50'});
+      }
+      return arr;
+    }
   }
 };
 let sampleOscillators = [];
@@ -326,7 +333,7 @@ function showSampleMode(type) {
   let harm = sampleDefs[type].harmonics(sampleBaseFreq);
   for(let i=0;i<harm.length;i++) {
     let h = harm[i];
-    sampleOscillators.push({freq: h.freq, amp: h.amp, phase: h.phase, active: true, color: sampleDefs[type].color});
+    sampleOscillators.push({freq: h.freq, amp: h.amp, phase: h.phase, active: true, color: h.color});
   }
   updateSampleOscListUI();
   document.getElementById('sample-formula').innerHTML = sampleDefs[type].formulaLatex;
@@ -464,7 +471,7 @@ function draw() {
   oscillators.forEach((o,idx)=>{
     if(o.active) {
       ctx.beginPath();
-      ctx.strokeStyle = "#2196f3";
+      ctx.strokeStyle = o.color || "#2196f3";
       ctx.lineWidth = 2;
       ctx.globalAlpha = 1;
       for(let i=0; i<n; i++) {
@@ -489,7 +496,7 @@ function draw() {
       ctx.lineTo(40 + (canvas.width-60), canvas.height/2);
       ctx.lineTo(40, canvas.height/2);
       ctx.closePath();
-      ctx.fillStyle = "#2196f3";
+      ctx.fillStyle = o.color || "#2196f3";
       ctx.fill();
       ctx.globalAlpha = 1;
     }
@@ -534,7 +541,7 @@ function sampleDrawLoop() {
   sampleOscillators.forEach((o,idx)=>{
     if(o.active) {
       ctx.beginPath();
-      ctx.strokeStyle = o.color;
+      ctx.strokeStyle = o.color || "#2196f3";
       ctx.lineWidth = 2;
       ctx.globalAlpha = 1;
       for(let i=0; i<n; i++) {
@@ -559,7 +566,7 @@ function sampleDrawLoop() {
       ctx.lineTo(40 + (canvas.width-60), canvas.height/2);
       ctx.lineTo(40, canvas.height/2);
       ctx.closePath();
-      ctx.fillStyle = o.color;
+      ctx.fillStyle = o.color || "#2196f3";
       ctx.fill();
       ctx.globalAlpha = 1;
     }
