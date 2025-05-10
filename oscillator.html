@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <title>실시간 합성파 생성기~~^^</title>
+  <title>실시간 합성파 생성기~^^</title>
   <style>
     body { font-family: sans-serif; background: #f4f4f4; margin: 0; padding: 0; }
     #controls, #sample-controls { background: #fff; padding: 20px; border-bottom: 1px solid #ddd; }
@@ -11,7 +11,7 @@
     .osc-row input[type="number"], .sample-osc-row input[type="number"] { width: 70px; }
     .osc-row label, .sample-osc-row label { margin-right: 5px; }
     .osc-row button, .sample-osc-row button { margin-left: 10px; }
-    #add-btn { margin-top: 10px; }
+    #add-btn, #sample-add-btn { margin-top: 10px; }
     #canvas-wrap, #sample-canvas-wrap { text-align: center; margin: 0; background: #fff; }
     canvas { border: 1px solid #bbb; margin: 20px auto; background: #fafafa; }
     .on { background: #4caf50; color: #fff; }
@@ -122,6 +122,7 @@
     <button id="back-btn">← 뒤로가기</button>
     <div id="sample-formula" class="sample-formula-math"></div>
     <div id="sample-osc-list"></div>
+    <button id="sample-add-btn">오실레이터 추가</button>
   </div>
   <div id="sample-canvas-wrap">
     <canvas id="sample-waveform" width="820" height="340"></canvas>
@@ -234,7 +235,6 @@ document.getElementById('play-btn').onclick = async () => {
   }
   document.getElementById('play-btn').textContent = isPlaying ? '⏸ 일시정지' : '▶ 재생';
 };
-// ★ 오실레이터 초기값 없음 ★
 oscillators = [];
 updateOscListUI();
 
@@ -325,8 +325,57 @@ let sampleIsPlaying = false;
 let sampleWaveType = '';
 let sampleBaseFreq = 440;
 let sampleDrawRequest = null;
+let sampleWorkletNode = null;
+let sampleWorkletReady = false;
+let sampleIsPlayingFlag = false;
+
+async function setupSampleWorklet() {
+  if (sampleWorkletReady) return;
+  await audioCtx.audioWorklet.addModule(URL.createObjectURL(new Blob([`
+class SineSumSampleProcessor extends AudioWorkletProcessor {
+  constructor() {
+    super();
+    this.osc = [];
+    this.port.onmessage = e => {
+      if (e.data.type === 'osc') this.osc = e.data.data;
+    };
+    this.t = 0;
+  }
+  process(inputs, outputs, params) {
+    const out = outputs[0][0];
+    const sr = sampleRate;
+    for (let i = 0; i < out.length; i++) {
+      let y = 0;
+      for (const o of this.osc) {
+        if (o.active) {
+          let phi = o.phase*Math.PI/180;
+          y += Math.sin(2*Math.PI*o.freq*this.t + phi) * o.amp;
+        }
+      }
+      out[i] = y;
+      this.t += 1/sr;
+    }
+    return true;
+  }
+}
+registerProcessor('sinesum-sample', SineSumSampleProcessor);
+  `], {type:'application/javascript'})));
+  sampleWorkletNode = new AudioWorkletNode(audioCtx, 'sinesum-sample');
+  sampleWorkletNode.connect(audioCtx.destination);
+  sampleWorkletNode.port.postMessage({type: 'osc', data: sampleOscillators});
+  sampleWorkletReady = true;
+}
+function updateSampleWorkletOsc() {
+  if (sampleWorkletNode) sampleWorkletNode.port.postMessage({type: 'osc', data: sampleOscillators});
+}
 
 function showSampleMode(type) {
+  // 메인 오실레이터 소리 자동 정지
+  if (isPlaying) {
+    isPlaying = false;
+    if (workletNode) workletNode.disconnect();
+    document.getElementById('play-btn').textContent = '▶ 재생';
+  }
   document.body.classList.add('show-sample');
   stopSampleOscillators();
   sampleOscillators = [];
@@ -342,12 +391,23 @@ function showSampleMode(type) {
   document.getElementById('sample-play-btn').textContent = '▶ 재생';
   cancelAnimationFrame(sampleDrawRequest);
   sampleDrawLoop();
+  setupSampleWorklet().then(()=>{
+    updateSampleWorkletOsc();
+    if (sampleIsPlayingFlag) {
+      sampleWorkletNode.connect(audioCtx.destination);
+    } else {
+      sampleWorkletNode.disconnect();
+    }
+  });
 }
 function hideSampleMode() {
   stopSampleOscillators();
   document.body.classList.remove('show-sample');
   sampleIsPlaying = false;
+  sampleIsPlayingFlag = false;
+  document.getElementById('sample-play-btn').textContent = '▶ 재생';
   cancelAnimationFrame(sampleDrawRequest);
+  if (sampleWorkletNode) sampleWorkletNode.disconnect();
 }
 function stopSampleOscillators() {
   sampleOscillators = [];
@@ -362,21 +422,41 @@ function updateSampleOscListUI() {
     row.className = 'sample-osc-row';
     row.innerHTML = `
       <label style="color:${o.color}; font-weight:bold;">OSC${idx+1}</label>
-      <label>주파수(Hz): ${o.freq}</label>
-      <label>볼륨(A): ${o.amp.toFixed(3)}</label>
-      <label>위상(°): ${o.phase}</label>
+      <label>주파수(Hz):</label>
+      <input type="number" value="${o.freq}" min="20" max="2000" step="1" onchange="setSampleFreq(${idx}, this.value)">
+      <label>볼륨(A):</label>
+      <input type="number" value="${o.amp}" min="0" max="1" step="0.01" onchange="setSampleAmp(${idx}, this.value)">
+      <label>위상(°):</label>
+      <input type="number" value="${o.phase}" min="0" max="360" step="1" onchange="setSamplePhase(${idx}, this.value)">
       <button class="${o.active?'on':'off'}" onclick="toggleSampleOsc(${idx}, this)">${o.active?'ON':'OFF'}</button>
+      <button onclick="removeSampleOsc(${idx})">삭제</button>
       <span class="formula">${formula}</span>
     `;
     list.appendChild(row);
   });
+  updateSampleWorkletOsc();
 }
-window.toggleSampleOsc = (idx, btn) => {
-  sampleOscillators[idx].active = !sampleOscillators[idx].active;
+window.setSampleFreq = (idx, val) => { sampleOscillators[idx].freq = Number(val); updateSampleOscListUI(); }
+window.setSampleAmp = (idx, val) => { sampleOscillators[idx].amp = Number(val); updateSampleOscListUI(); }
+window.setSamplePhase = (idx, val) => { sampleOscillators[idx].phase = Number(val)%360; updateSampleOscListUI(); }
+window.toggleSampleOsc = (idx, btn) => { sampleOscillators[idx].active = !sampleOscillators[idx].active; updateSampleOscListUI(); }
+window.removeSampleOsc = (idx) => { sampleOscillators.splice(idx, 1); updateSampleOscListUI(); };
+document.getElementById('sample-add-btn').onclick = () => {
+  const color = randomColor();
+  sampleOscillators.push({freq:440, amp:0.5, phase:0, active:true, color});
   updateSampleOscListUI();
 };
-document.getElementById('sample-play-btn').onclick = () => {
+
+document.getElementById('sample-play-btn').onclick = async () => {
+  await setupSampleWorklet();
+  if (audioCtx.state === 'suspended') await audioCtx.resume();
   sampleIsPlaying = !sampleIsPlaying;
+  sampleIsPlayingFlag = sampleIsPlaying;
+  if (sampleIsPlaying) {
+    sampleWorkletNode.connect(audioCtx.destination);
+  } else {
+    sampleWorkletNode.disconnect();
+  }
   document.getElementById('sample-play-btn').textContent = sampleIsPlaying ? '⏸ 일시정지' : '▶ 재생';
 };
 document.getElementById('back-btn').onclick = () => {
