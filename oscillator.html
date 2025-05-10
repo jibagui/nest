@@ -53,29 +53,29 @@
     <button id="play-btn">▶ 재생</button>
     <div id="osc-list"></div>
     <button id="add-btn">오실레이터 추가</button>
-    <div id="sample-buttons">
-      <button class="wave-btn" id="btn-tri">
-        <svg viewBox="0 0 80 40"><polyline points="0,40 20,0 40,40 60,0 80,40" fill="none" stroke="#2196f3" stroke-width="4"/></svg>
-        <span>Triangle</span>
-      </button>
-      <button class="wave-btn" id="btn-square">
-        <svg viewBox="0 0 80 40"><polyline points="0,40 0,0 40,0 40,40 80,40 80,0" fill="none" stroke="#e91e63" stroke-width="4"/></svg>
-        <span>Square</span>
-      </button>
-      <button class="wave-btn" id="btn-saw">
-        <svg viewBox="0 0 80 40"><polyline points="0,40 80,0 80,40" fill="none" stroke="#4caf50" stroke-width="4"/></svg>
-        <span>Sawtooth</span>
-      </button>
-      <button class="wave-btn" id="btn-semisine">
-        <svg viewBox="0 0 80 40"><path d="M0,40 Q20,0 40,0 Q60,0 80,40" fill="none" stroke="#ff9800" stroke-width="4"/></svg>
-        <span>Semisine</span>
-      </button>
-    </div>
   </div>
   <div id="canvas-wrap">
     <canvas id="waveform" width="820" height="340"></canvas>
   </div>
-
+  <!-- 샘플 버튼은 그래프 아래에 위치 -->
+  <div id="sample-buttons">
+    <button class="wave-btn" id="btn-tri">
+      <svg viewBox="0 0 80 40"><polyline points="0,40 20,0 40,40 60,0 80,40" fill="none" stroke="#2196f3" stroke-width="4"/></svg>
+      <span>Triangle</span>
+    </button>
+    <button class="wave-btn" id="btn-square">
+      <svg viewBox="0 0 80 40"><polyline points="0,40 0,0 40,0 40,40 80,40 80,0" fill="none" stroke="#e91e63" stroke-width="4"/></svg>
+      <span>Square</span>
+    </button>
+    <button class="wave-btn" id="btn-saw">
+      <svg viewBox="0 0 80 40"><polyline points="0,40 80,0 80,40" fill="none" stroke="#4caf50" stroke-width="4"/></svg>
+      <span>Sawtooth</span>
+    </button>
+    <button class="wave-btn" id="btn-semisine">
+      <svg viewBox="0 0 80 40"><path d="M0,40 Q20,0 40,0 Q60,0 80,40" fill="none" stroke="#ff9800" stroke-width="4"/></svg>
+      <span>Semisine</span>
+    </button>
+  </div>
   <!-- 샘플 모드 UI -->
   <div id="sample-controls">
     <button id="sample-play-btn">▶ 재생</button>
@@ -86,7 +86,6 @@
   <div id="sample-canvas-wrap">
     <canvas id="sample-waveform" width="820" height="340"></canvas>
   </div>
-
 <script>
 // --------- 기존 일반 모드 코드 ---------
 function randomColor(alpha=0.35) {
@@ -313,6 +312,7 @@ function showSampleMode(type) {
   sampleWaveType = type;
   document.getElementById('controls').style.display = 'none';
   document.getElementById('canvas-wrap').style.display = 'none';
+  document.getElementById('sample-buttons').style.display = 'none';
   document.getElementById('sample-controls').style.display = '';
   document.getElementById('sample-canvas-wrap').style.display = '';
   stopSampleOscillators();
@@ -338,6 +338,7 @@ function hideSampleMode() {
   stopSampleOscillators();
   document.getElementById('controls').style.display = '';
   document.getElementById('canvas-wrap').style.display = '';
+  document.getElementById('sample-buttons').style.display = '';
   document.getElementById('sample-controls').style.display = 'none';
   document.getElementById('sample-canvas-wrap').style.display = 'none';
   sampleIsPlaying = false;
