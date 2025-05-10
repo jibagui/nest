@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>실시간 합성파 생성기</title>
   <style>
     body { font-family: sans-serif; background: #f4f4f4; margin: 0; padding: 0; }
@@ -34,6 +34,13 @@
     }
     .osc-util-btn { background: #eee; color: #222; font-size: 1em; margin-right: 0.7em; }
     .osc-util-btn.active { background: #ff9800; color: #fff; }
+    .osc-util-btn:disabled,
+    .osc-util-btn.disabled {
+      background: #bbb !important;
+      color: #fff !important;
+      cursor: not-allowed !important;
+      opacity: 1 !important;
+    }
     .formula {
       font-size: 1em;
       margin-left: 1.5em;
@@ -206,6 +213,18 @@ let sampleDrawRequest = null;
 
 let workletReady = false;
 let workletNode = null;
+
+function updateNcBtnState() {
+  const ncBtn = document.getElementById('nc-btn');
+  if (oscillators.length === 0) {
+    ncBtn.disabled = true;
+    ncBtn.classList.add('disabled');
+  } else {
+    ncBtn.disabled = false;
+    ncBtn.classList.remove('disabled');
+  }
+}
+
 async function setupWorklet() {
   if (workletReady) return;
   await audioCtx.audioWorklet.addModule(URL.createObjectURL(new Blob([`
@@ -277,12 +296,26 @@ function updateOscListUI() {
     list.appendChild(row);
   });
   updateWorkletOsc();
+  updateNcBtnState();
 }
 window.setFreq = (idx, val) => { oscillators[idx].freq = Number(val); updateOscListUI(); }
 window.setVol = (idx, val) => { oscillators[idx].vol = Number(val); updateOscListUI(); }
 window.setPhase = (idx, val) => { oscillators[idx].phase = Number(val)%360; updateOscListUI(); }
 window.toggleOsc = (idx, btn) => { oscillators[idx].active = !oscillators[idx].active; updateOscListUI(); }
-window.removeOsc = (idx) => { oscillators.splice(idx, 1); updateOscListUI(); };
+window.removeOsc = (idx) => {
+  oscillators.splice(idx, 1);
+  if (oscillators.length === 0) {
+    noiseCancelOn = false;
+    document.getElementById('nc-btn').classList.remove('active');
+    document.getElementById('nc-btn').textContent = '노이즈 캔슬링 OFF';
+    if (isPlaying) {
+      isPlaying = false;
+      if (workletNode) workletNode.disconnect();
+      document.getElementById('play-btn').textContent = '▶ 재생';
+    }
+  }
+  updateOscListUI();
+};
 document.getElementById('add-btn').onclick = () => {
   const color = randomColor();
   oscillators.push({freq:440, vol:0.5, phase:0, active:true, color});
@@ -304,9 +337,15 @@ document.getElementById('reset-btn').onclick = () => {
   noiseCancelOn = false;
   document.getElementById('nc-btn').classList.remove('active');
   document.getElementById('nc-btn').textContent = '노이즈 캔슬링 OFF';
+  if (isPlaying) {
+    isPlaying = false;
+    if (workletNode) workletNode.disconnect();
+    document.getElementById('play-btn').textContent = '▶ 재생';
+  }
   updateOscListUI();
 };
 document.getElementById('nc-btn').onclick = () => {
+  if (oscillators.length === 0) return;
   const tag = 'main';
   if (!noiseCancelOn) {
     const newOscs = [];
@@ -348,7 +387,8 @@ document.getElementById('play-btn').onclick = async () => {
   }
 };
 updateOscListUI();
-
+</script>
+<script>
 const sampleDefs = {
   'triangle': {
     name: '삼각파 (Triangle Wave)',
@@ -850,37 +890,6 @@ function unlockAudioContext() {
 }
 document.body.addEventListener('mousedown', unlockAudioContext, {once:true});
 document.body.addEventListener('touchstart', unlockAudioContext, {once:true});
-  // 1. 초기화 버튼
-document.getElementById('reset-btn').onclick = () => {
-  oscillators = [];
-  noiseCancelOn = false;
-  document.getElementById('nc-btn').classList.remove('active');
-  document.getElementById('nc-btn').textContent = '노이즈 캔슬링 OFF';
-  // 추가: 재생 중이면 일시정지
-  if (isPlaying) {
-    isPlaying = false;
-    if (workletNode) workletNode.disconnect();
-    document.getElementById('play-btn').textContent = '▶ 재생';
-  }
-  updateOscListUI();
-};
-
-// 2. 오실레이터 삭제
-window.removeOsc = (idx) => {
-  oscillators.splice(idx, 1);
-  // 추가: 오실레이터가 0개면 일시정지 + 노이즈 캔슬링 OFF
-  if (oscillators.length === 0) {
-    noiseCancelOn = false;
-    document.getElementById('nc-btn').classList.remove('active');
-    document.getElementById('nc-btn').textContent = '노이즈 캔슬링 OFF';
-    if (isPlaying) {
-      isPlaying = false;
-      if (workletNode) workletNode.disconnect();
-      document.getElementById('play-btn').textContent = '▶ 재생';
-    }
-  }
-  updateOscListUI();
-};
 </script>
 </body>
 </html>
