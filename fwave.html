@@ -1,542 +1,689 @@
+<!-- ===== [1/5] ===== -->
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>실시간 합성파 생성기</title>
   <style>
-    body {
-      font-family: 'Noto Sans KR', sans-serif;
-      background: #f7f7f7;
-      margin: 0;
-      padding: 0;
-    }
-    .container {
-      max-width: 940px;
-      margin: 30px auto 60px auto;
-      background: #fff;
-      border-radius: 12px;
-      box-shadow: 0 4px 24px rgba(0,0,0,0.10);
-      padding: 32px 28px 32px 28px;
-    }
-    h1 {
-      font-size: 2rem;
-      margin-bottom: 20px;
-    }
-    .btn-row {
-      margin-bottom: 16px;
-    }
-    button {
-      background: #2196f3;
-      color: #fff;
-      border: none;
-      border-radius: 5px;
-      padding: 7px 18px;
-      font-size: 1rem;
-      margin-right: 8px;
-      cursor: pointer;
-      transition: background 0.15s;
-    }
-    button:active { background: #1769aa; }
-    button.off { background: #bbb; color: #333; }
-    button.del { background: #f44336; }
-    button.del:active { background: #b71c1c; }
-    .osc-row, .sample-osc-row {
-      display: flex;
-      align-items: center;
-      gap: 7px;
-      margin-bottom: 6px;
-      padding: 4px 4px 4px 0;
-      border-radius: 5px;
-      transition: background 0.2s;
-    }
-    .osc-row label, .sample-osc-row label {
-      font-size: 0.98rem;
-      margin-right: 2px;
-    }
-    .osc-row input[type="number"],
-    .sample-osc-row input[type="number"] {
-      width: 60px;
-      font-size: 1rem;
-      padding: 2px 4px;
-      border: 1px solid #bbb;
-      border-radius: 4px;
-      outline: none;
-      margin-right: 2px;
-    }
-    .osc-row input[type="range"],
-    .sample-osc-row input[type="range"] {
-      width: 90px;
-      margin-right: 2px;
-      vertical-align: middle;
+    body { font-family: sans-serif; background: #f4f4f4; margin: 0; padding: 0; }
+    #controls, #sample-controls { background: #fff; padding: 20px; border-bottom: 1px solid #ddd; }
+    #osc-list, #sample-osc-list { margin-bottom: 10px; }
+    .osc-row, .sample-osc-row { margin-bottom: 8px; }
+    .osc-row input[type="number"], .sample-osc-row input[type="number"] { width: 70px; }
+    .osc-row input[type="range"], .sample-osc-row input[type="range"] {
+      width: 120px; margin: 0 8px; vertical-align: middle;
+      will-change: transform;
+      height: 18px;
+      border-radius: 9px;
+      background: #e3e3e3;
       accent-color: #2196f3;
-      touch-action: none;
     }
+    .osc-row label, .sample-osc-row label { margin-right: 5px; }
+    .osc-row button, .sample-osc-row button { margin-left: 10px; }
     .osc-btn, .sample-osc-btn {
-      padding: 2px 10px;
-      font-size: 0.96rem;
-      border-radius: 4px;
+      display: inline-block;
+      min-width: 60px; min-height: 36px;
+      padding: 0 16px;
+      font-size: 1em;
       border: none;
-      margin-right: 2px;
+      border-radius: 6px;
+      margin-left: 10px;
+      vertical-align: middle;
       cursor: pointer;
       transition: background 0.15s;
     }
-    .osc-btn.on, .sample-osc-btn.on { background: #2196f3; color: #fff; }
-    .osc-btn.off, .sample-osc-btn.off { background: #bbb; color: #333; }
-    .osc-btn.del, .sample-osc-btn.del { background: #f44336; color: #fff; }
-    .osc-btn.del:active, .sample-osc-btn.del:active { background: #b71c1c; }
-    .formula {
-      margin-left: 8px;
-      font-family: 'Consolas', 'Menlo', 'Monaco', monospace;
-      font-size: 0.95rem;
-      color: #666;
+    .on { background: #4caf50; color: #fff; }
+    .off { background: #eee; color: #444; }
+    .del { background: #e53935; color: #fff; }
+    #play-btn, #restart-btn, #sample-play-btn, #back-btn, .osc-util-btn {
+      font-size: 1.2em; padding: 0.7em 2em; border: none; border-radius: 8px;
+      background: #2196f3; color: #fff; margin-bottom: 1em; cursor: pointer;
+      margin-right: 1em;
     }
-    #osc-list, #sample-osc-list {
-      margin-bottom: 20px;
+    #restart-btn { background: #ffa726; color: #fff; margin-left: 0; }
+    .osc-util-btn { background: #eee; color: #222; font-size: 1em; margin-right: 0.7em; }
+    .osc-util-btn.active { background: #ff9800; color: #fff; }
+    .osc-util-btn:disabled,
+    .osc-util-btn.disabled {
+      background: #bbb !important;
+      color: #fff !important;
+      cursor: not-allowed !important;
+      opacity: 1 !important;
+    }
+    .formula {
+      font-size: 1em;
+      margin-left: 1.5em;
+      color: #333;
+      font-family: 'Consolas', 'Menlo', 'Monaco', monospace;
+      background: #f6f6f6;
+      border-radius: 6px;
+      padding: 2px 8px;
+      display: inline-block;
+    }
+    #canvas-wrap, #sample-canvas-wrap {
+      text-align: center;
+      margin: 0 auto;
+      background: #fff;
+      width: 100%;
+      max-width: 900px;
+      box-sizing: border-box;
+      position: relative;
     }
     canvas {
-      display: block;
-      margin: 18px 0 8px 0;
-      background: #fafafa;
-      border: 1px solid #ddd;
-      border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-    }
-    /* 모달 스타일 */
-    #osc-modal {
-      display: none;
-      position: fixed;
-      z-index: 1000;
-      left: 0; top: 0; right: 0; bottom: 0;
-      background: rgba(0,0,0,0.18);
-      align-items: center;
-      justify-content: center;
-    }
-    #osc-modal-inner {
-      background: #fff;
-      border-radius: 10px;
-      padding: 28px 32px 20px 32px;
-      box-shadow: 0 6px 32px rgba(0,0,0,0.20);
-      min-width: 320px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
-    #osc-modal-inner label {
-      margin: 8px 0 4px 0;
-      font-size: 1.03rem;
-    }
-    #osc-modal-inner input[type="number"] {
-      width: 100px;
-      font-size: 1.07rem;
-      padding: 3px 6px;
-      margin-bottom: 6px;
       border: 1px solid #bbb;
-      border-radius: 4px;
+      background: #fafafa;
+      margin: 20px auto;
+      display: block;
+      touch-action: none;
     }
-    #osc-modal-inner .modal-btn-row {
-      margin-top: 18px;
-      width: 100%;
-      display: flex;
-      justify-content: flex-end;
-      gap: 8px;
+    #sample-buttons {
+      display: flex; gap: 20px; justify-content: center; margin: 36px 0 24px 0;
     }
-    /* 반응형 */
-    @media (max-width: 600px) {
-      .container { padding: 8px 2vw; }
-      canvas { width: 98vw !important; }
-      #osc-modal-inner { min-width: 90vw; }
+    .wave-btn {
+      border: 2px solid #aaa; border-radius: 12px; background: #fff; cursor: pointer;
+      width: 120px; height: 120px; display: flex; flex-direction: column; align-items: center; justify-content: center;
+      box-shadow: 0 2px 8px #0001; transition: box-shadow .2s;
     }
+    .wave-btn:hover { box-shadow: 0 4px 16px #0002; border-color: #2196f3; }
+    .wave-btn svg { width: 80px; height: 40px; margin-bottom: 8px; }
+    .wave-btn span { font-size: 1.1em; margin-top: 2px; }
+    .wave-btn svg polyline { stroke-width: 4 !important; }
+    #sample-controls, #sample-canvas-wrap {
+      visibility: hidden; position: absolute; left: -9999px;
+    }
+    #controls, #canvas-wrap, #sample-buttons {
+      visibility: visible; position: static;
+    }
+    .show-sample #sample-controls, .show-sample #sample-canvas-wrap {
+      visibility: visible !important; position: static !important;
+    }
+    .show-sample #controls, .show-sample #canvas-wrap, #sample-buttons {
+      visibility: hidden !important; position: absolute !important; left: -9999px !important;
+    }
+    #sample-osc-list { margin-top: 8px; }
+    #back-btn { background: #888; color: #fff; margin-left: 0; }
+    .sample-formula-math {
+      background: #f6f6f6;
+      border-radius: 8px;
+      padding: 18px 18px 12px 18px;
+      margin: 16px auto 10px auto;
+      font-size: 1.15em;
+      max-width: 98vw;
+      box-sizing: border-box;
+      overflow-x: auto;
+      white-space: nowrap;
+      text-align: left;
+    }
+    .sample-formula-math h3 {
+      margin: 0 0 8px 0;
+      font-size: 1.12em;
+      font-weight: bold;
+      color: #333;
+    }
+    .mjx-container[jax="CHTML"] {
+      overflow-x: auto !important;
+      max-width: 100% !important;
+      box-sizing: border-box;
+    }
+    input[type="range"] { touch-action: none; }
+    #osc-modal {
+      display: none; position: fixed; left: 0; top: 0; width: 100vw; height: 100vh;
+      background: #0006; z-index: 1000; align-items: center; justify-content: center;
+    }
+    #osc-modal > div {
+      background: #fff; padding: 24px 32px; border-radius: 16px; min-width: 260px;
+      box-shadow: 0 4px 24px #0003;
+    }
+    #osc-modal input[type="number"] { width: 80px; margin-left: 8px; }
+    #osc-modal label { display: block; margin: 8px 0 0 0; }
+    #osc-modal button { margin-left: 10px; margin-top: 10px; }
   </style>
+  <script>
+    window.MathJax = {
+      tex: { displayMath: [['$$','$$'], ['\\[','\\]']] },
+      options: { renderActions: { addMenu: [] } },
+      chtml: {
+        displayAlign: 'center',
+        displayIndent: '0',
+        scale: 1,
+        linebreaks: { automatic: false }
+      }
+    };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
 </head>
 <body>
-  <div class="container">
-    <h1>실시간 합성파 생성기</h1>
-    <div class="btn-row">
-      <button id="add-btn">함수 추가</button>
-      <button id="rand-btn">무작위 함수</button>
-      <button id="reset-btn">초기화</button>
-      <button id="nc-btn">노이즈 캔슬링 OFF</button>
-    </div>
+  <div id="controls">
+    <button id="play-btn">▶ 재생</button>
+    <button id="restart-btn" title="처음부터 재생">⟲</button>
     <div id="osc-list"></div>
-    <canvas id="waveform" width="800" height="280"></canvas>
-    <hr style="margin:32px 0 20px 0;">
-    <div class="btn-row">
-      <button id="sample-add-btn">함수 추가</button>
-      <button id="sample-rand-btn">무작위 함수</button>
-      <button id="sample-reset-btn">초기화</button>
-      <button id="sample-nc-btn">노이즈 캔슬링 OFF</button>
+    <div id="osc-btns">
+      <button id="add-btn" class="osc-util-btn">함수 추가</button>
+      <button id="rand-btn" class="osc-util-btn">무작위 함수</button>
+      <button id="nc-btn" class="osc-util-btn">노이즈 캔슬링 OFF</button>
+      <button id="reset-btn" class="osc-util-btn">초기화</button>
     </div>
-    <div id="sample-osc-list"></div>
-    <canvas id="sample-waveform" width="800" height="180"></canvas>
   </div>
-  <!-- 오실레이터 추가 모달 -->
+  <div id="canvas-wrap">
+    <canvas id="waveform" width="820" height="340"></canvas>
+  </div>
+  <div id="sample-buttons">
+    <button class="wave-btn" id="btn-tri">
+      <svg viewBox="0 0 80 40">
+        <polyline points="0,20 20,0 40,20 60,40 80,20" fill="none" stroke="#2196f3"/>
+      </svg>
+      <span>Triangle</span>
+    </button>
+    <button class="wave-btn" id="btn-square">
+      <svg viewBox="0 0 80 40">
+        <polyline points="0,40 0,0 40,0 40,40 80,40 80,0" fill="none" stroke="#e91e63"/>
+      </svg>
+      <span>Square</span>
+    </button>
+    <button class="wave-btn" id="btn-saw">
+      <svg viewBox="0 0 80 40">
+        <polyline points="0,40 80,0 80,40" fill="none" stroke="#4caf50"/>
+      </svg>
+      <span>Sawtooth</span>
+    </button>
+  </div>
+  <div id="sample-controls">
+    <button id="sample-play-btn">▶ 재생</button>
+    <button id="back-btn">← 뒤로가기</button>
+    <div id="sample-formula" class="sample-formula-math"></div>
+    <div id="sample-osc-list"></div>
+    <div id="sample-osc-btns">
+      <button id="sample-add-btn" class="osc-util-btn">함수 추가</button>
+      <button id="sample-rand-btn" class="osc-util-btn">무작위 함수</button>
+      <button id="sample-nc-btn" class="osc-util-btn">노이즈 캔슬링 OFF</button>
+      <button id="sample-reset-btn" class="osc-util-btn">초기화</button>
+    </div>
+  </div>
+  <div id="sample-canvas-wrap">
+    <canvas id="sample-waveform" width="820" height="340"></canvas>
+  </div>
   <div id="osc-modal">
-    <div id="osc-modal-inner">
-      <h3 style="margin:0 0 10px 0;">함수 추가</h3>
-      <label for="osc-modal-freq">주파수 (Hz):</label>
-      <input type="number" id="osc-modal-freq" min="20" max="2000" step="1" value="440">
-      <label for="osc-modal-vol">진폭 (0~1):</label>
-      <input type="number" id="osc-modal-vol" min="0" max="1" step="0.01" value="0.5">
-      <label for="osc-modal-phase">위상 (도):</label>
-      <input type="number" id="osc-modal-phase" min="0" max="360" step="1" value="0">
-      <div class="modal-btn-row">
-        <button id="osc-modal-ok">확인</button>
+    <div>
+      <h3>함수 추가</h3>
+      <label>주파수(Hz): <input id="osc-modal-freq" type="number" value="440" min="20" max="2000"></label>
+      <label>볼륨(A): <input id="osc-modal-vol" type="number" value="0.5" min="0" max="1" step="0.01"></label>
+      <label>위상(°): <input id="osc-modal-phase" type="number" value="0" min="0" max="360"></label>
+      <div style="margin-top:16px;text-align:right;">
         <button id="osc-modal-cancel">취소</button>
+        <button id="osc-modal-ok">추가</button>
       </div>
     </div>
   </div>
+<!-- ===== [1/5 끝] ===== -->
+<!-- ===== [2/5] ===== -->
   <script>
-    // ===================== (1/4) UI 텍스트/모달/슬라이더 최적화 준비 =====================
-    // 전역 변수 선언
+    // ===== [전역 변수 및 유틸리티] =====
+    let ctx, sampleCtx;
+    let isSampleMode = false;
     let oscillators = [];
     let sampleOscillators = [];
-    let noiseCancelOn = false;
-    let sampleNoiseCancelOn = false;
-    const view = { tStart: 0, tSpan: 0.01, yMin: -2, yMax: 2 };
-    const sampleView = { tStart: 0, tSpan: 0.01, yMin: -2, yMax: 2 };
+    let noiseCancel = false;
+    let sampleNoiseCancel = false;
+    let playing = false;
+    let samplePlaying = false;
+    let audioCtx = null;
+    let sampleAudioCtx = null;
+    let sourceNode = null;
+    let sampleSourceNode = null;
+    let t0 = 0;
+    let sampleT0 = 0;
+    const WAVE_TYPES = [
+      { name: "sine", label: "사인" },
+      { name: "triangle", label: "삼각" },
+      { name: "square", label: "사각" },
+      { name: "sawtooth", label: "톱니" }
+    ];
 
-    // 유틸리티 함수
-    function randomFreq() { return Math.round(40 + Math.random()*900); }
-    function randomVol() { return Math.round((0.2 + Math.random()*0.8)*100)/100; }
-    function randomPhase() { return Math.round(Math.random()*360); }
-    function randomColor() {
-      const h = Math.floor(Math.random()*360);
-      return `hsl(${h}, 80%, 55%)`;
+    // ===== [캔버스 초기화] =====
+    function resizeCanvas() {
+      const dpr = window.devicePixelRatio || 1;
+      const wrap = document.getElementById('canvas-wrap');
+      const width = Math.min(wrap.offsetWidth, 900);
+      const height = 340;
+      const cvs = document.getElementById('waveform');
+      cvs.width = width * dpr;
+      cvs.height = height * dpr;
+      cvs.style.width = width + 'px';
+      cvs.style.height = height + 'px';
+      ctx = cvs.getContext('2d');
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+
+      const sampleWrap = document.getElementById('sample-canvas-wrap');
+      const sampleWidth = Math.min(sampleWrap.offsetWidth, 900);
+      const sampleCvs = document.getElementById('sample-waveform');
+      sampleCvs.width = sampleWidth * dpr;
+      sampleCvs.height = height * dpr;
+      sampleCvs.style.width = sampleWidth + 'px';
+      sampleCvs.style.height = height + 'px';
+      sampleCtx = sampleCvs.getContext('2d');
+      sampleCtx.setTransform(1, 0, 0, 1, 0, 0);
     }
-    function phaseToPiString(deg) {
-      if (!deg) return '';
-      if (deg === 180) return '+π';
-      if (deg === 90) return '+π/2';
-      if (deg === 270) return '+3π/2';
-      if (deg % 180 === 0) return `+${deg/180}π`;
-      if (deg % 90 === 0) return `+${deg/90}π/2`;
-      return `+${(deg/180).toFixed(2)}π`;
+    window.addEventListener('resize', resizeCanvas);
+
+    // ===== [오실레이터 데이터 구조 및 기본값] =====
+    function defaultOscillator() {
+      return {
+        type: "sine",
+        freq: 440,
+        amp: 0.5,
+        phase: 0
+      };
     }
 
-    document.addEventListener('DOMContentLoaded', function() {
-      // [1-1] 버튼 이름 변경
-      document.getElementById('add-btn').textContent = '함수 추가';
-      document.getElementById('rand-btn').textContent = '무작위 함수';
-      document.getElementById('sample-add-btn').textContent = '함수 추가';
-      document.getElementById('sample-rand-btn').textContent = '무작위 함수';
-
-      // [1-2] 오실레이터 추가 시 모달 입력창 띄우기
-      function showOscModal(onOk) {
-        const modal = document.getElementById('osc-modal');
-        modal.style.display = 'flex';
-        document.getElementById('osc-modal-freq').value = 440;
-        document.getElementById('osc-modal-vol').value = 0.5;
-        document.getElementById('osc-modal-phase').value = 0;
-        function okHandler() {
-          modal.style.display = 'none';
-          onOk({
-            freq: parseFloat(document.getElementById('osc-modal-freq').value),
-            vol: parseFloat(document.getElementById('osc-modal-vol').value),
-            phase: parseFloat(document.getElementById('osc-modal-phase').value)
-          });
-          cleanup();
-        }
-        function cancelHandler() {
-          modal.style.display = 'none';
-          cleanup();
-        }
-        function cleanup() {
-          okBtn.removeEventListener('click', okHandler);
-          cancelBtn.removeEventListener('click', cancelHandler);
-        }
-        const okBtn = document.getElementById('osc-modal-ok');
-        const cancelBtn = document.getElementById('osc-modal-cancel');
-        okBtn.addEventListener('click', okHandler);
-        cancelBtn.addEventListener('click', cancelHandler);
-        // 엔터키로 확인
-        modal.querySelectorAll('input').forEach(inp => {
-          inp.onkeydown = e => { if (e.key === 'Enter') okHandler(); };
-        });
-        document.getElementById('osc-modal-freq').focus();
-      }
-
-      // [1-3] '함수 추가' 버튼 클릭 시 모달로 값 입력받고 오실레이터 추가
-      document.getElementById('add-btn').onclick = function() {
-        showOscModal(function(val) {
-          addOscillator(val.freq, val.vol, val.phase);
-        });
+    // ===== [함수 추가 모달 제어] =====
+    function openOscModal(onOk, osc) {
+      document.getElementById('osc-modal').style.display = 'flex';
+      document.getElementById('osc-modal-freq').value = osc ? osc.freq : 440;
+      document.getElementById('osc-modal-vol').value = osc ? osc.amp : 0.5;
+      document.getElementById('osc-modal-phase').value = osc ? osc.phase : 0;
+      let okHandler = function() {
+        const freq = parseFloat(document.getElementById('osc-modal-freq').value);
+        const amp = parseFloat(document.getElementById('osc-modal-vol').value);
+        const phase = parseFloat(document.getElementById('osc-modal-phase').value);
+        document.getElementById('osc-modal').style.display = 'none';
+        onOk({ type: "sine", freq, amp, phase });
+        document.getElementById('osc-modal-ok').removeEventListener('click', okHandler);
       };
-      document.getElementById('sample-add-btn').onclick = function() {
-        showOscModal(function(val) {
-          addSampleOscillator(val.freq, val.vol, val.phase);
-        });
+      document.getElementById('osc-modal-ok').addEventListener('click', okHandler);
+      document.getElementById('osc-modal-cancel').onclick = function() {
+        document.getElementById('osc-modal').style.display = 'none';
+        document.getElementById('osc-modal-ok').removeEventListener('click', okHandler);
       };
+    }
 
-      // [1-4] '무작위 함수' 버튼도 모달 없이 랜덤 값으로 추가
-      document.getElementById('rand-btn').onclick = function() {
-        addOscillator(randomFreq(), randomVol(), randomPhase());
-      };
-      document.getElementById('sample-rand-btn').onclick = function() {
-        addSampleOscillator(randomFreq(), randomVol(), randomPhase());
-      };
-
-      // [1-5] 모달 외부 클릭 시 닫기
-      document.getElementById('osc-modal').addEventListener('mousedown', function(e) {
-        if (e.target === this) this.style.display = 'none';
+    // ===== [함수 추가/무작위 함수/초기화/노이즈캔슬 버튼 이벤트] =====
+    document.getElementById('add-btn').onclick = function() {
+      openOscModal(function(osc) {
+        oscillators.push(osc);
+        renderOscList();
+        drawWave();
       });
-    });
+    };
+    document.getElementById('rand-btn').onclick = function() {
+      const type = WAVE_TYPES[Math.floor(Math.random() * WAVE_TYPES.length)].name;
+      const freq = Math.floor(Math.random() * 900) + 100;
+      const amp = +(Math.random() * 0.8 + 0.2).toFixed(2);
+      const phase = Math.floor(Math.random() * 360);
+      oscillators.push({ type, freq, amp, phase });
+      renderOscList();
+      drawWave();
+    };
+    document.getElementById('reset-btn').onclick = function() {
+      oscillators = [];
+      renderOscList();
+      drawWave();
+    };
+    document.getElementById('nc-btn').onclick = function() {
+      noiseCancel = !noiseCancel;
+      this.textContent = noiseCancel ? "노이즈 캔슬링 ON" : "노이즈 캔슬링 OFF";
+      drawWave();
+    };
 
-    // ===================== (2/4) 슬라이더 실시간 적용/입력창 자동닫힘/오실레이터 추가 =====================
-    function addOscillator(freq, vol, phase) {
-      oscillators.push({
-        freq: freq,
-        vol: vol,
-        phase: phase,
-        color: randomColor(),
-        active: true
-      });
-      renderOscillatorList();
-      draw();
-    }
-    function addSampleOscillator(freq, vol, phase) {
-      sampleOscillators.push({
-        freq: freq,
-        vol: vol,
-        phase: phase,
-        color: randomColor(),
-        active: true
-      });
-      renderSampleOscillatorList();
-      sampleDrawLoop();
-    }
-
-    function makeSliderHandler(list, idx, key, render, draw) {
-      return function(e) {
-        let val = parseFloat(e.target.value);
-        list[idx][key] = val;
-        render();
-        draw();
-      };
-    }
-    function makeNumberInputHandler(list, idx, key, render, draw) {
-      return function(e) {
-        let val = parseFloat(e.target.value);
-        if (!isNaN(val)) {
-          list[idx][key] = val;
-          render();
-          draw();
-          e.target.focus();
-          let len = e.target.value.length;
-          e.target.setSelectionRange(len, len);
-        }
-      };
-    }
-
-    function renderOscillatorList() {
-      const listDiv = document.getElementById('osc-list');
-      listDiv.innerHTML = '';
+    // ===== [2/5 끝] =====
+<!-- ===== [3/5] ===== -->
+    // ===== [오실레이터 리스트 렌더링 및 슬라이더/입력 최적화] =====
+    function renderOscList() {
+      const list = document.getElementById('osc-list');
+      list.innerHTML = '';
       oscillators.forEach((osc, idx) => {
         const row = document.createElement('div');
         row.className = 'osc-row';
-        row.style.background = osc.active ? '#fff' : '#eee';
-        row.innerHTML = `
-          <label>f:<input type="number" min="20" max="2000" step="1" value="${osc.freq}"></label>
-          <input type="range" min="20" max="2000" step="1" value="${osc.freq}">
-          <label>A:<input type="number" min="0" max="1" step="0.01" value="${osc.vol}"></label>
-          <input type="range" min="0" max="1" step="0.01" value="${osc.vol}">
-          <label>φ:<input type="number" min="0" max="360" step="1" value="${osc.phase}"></label>
-          <input type="range" min="0" max="360" step="1" value="${osc.phase}">
-          <button class="osc-btn ${osc.active ? 'on' : 'off'}">${osc.active ? 'ON' : 'OFF'}</button>
-          <button class="osc-btn del">삭제</button>
-          <span class="formula">${osc.vol}·sin(2π·${osc.freq}t${osc.phase ? `+${phaseToPiString(osc.phase)}` : ''})</span>
-        `;
-        const inputs = row.querySelectorAll('input[type="number"]');
-        const sliders = row.querySelectorAll('input[type="range"]');
-        inputs[0].addEventListener('input', makeNumberInputHandler(oscillators, idx, 'freq', renderOscillatorList, draw));
-        sliders[0].addEventListener('input', makeSliderHandler(oscillators, idx, 'freq', renderOscillatorList, draw));
-        inputs[1].addEventListener('input', makeNumberInputHandler(oscillators, idx, 'vol', renderOscillatorList, draw));
-        sliders[1].addEventListener('input', makeSliderHandler(oscillators, idx, 'vol', renderOscillatorList, draw));
-        inputs[2].addEventListener('input', makeNumberInputHandler(oscillators, idx, 'phase', renderOscillatorList, draw));
-        sliders[2].addEventListener('input', makeSliderHandler(oscillators, idx, 'phase', renderOscillatorList, draw));
-        row.querySelector('.osc-btn.on, .osc-btn.off').onclick = function() {
-          oscillators[idx].active = !oscillators[idx].active;
-          renderOscillatorList();
-          draw();
+
+        // 파형 종류 선택
+        const typeSel = document.createElement('select');
+        WAVE_TYPES.forEach(t => {
+          const opt = document.createElement('option');
+          opt.value = t.name;
+          opt.textContent = t.label;
+          if (osc.type === t.name) opt.selected = true;
+          typeSel.appendChild(opt);
+        });
+        typeSel.onchange = function() {
+          oscillators[idx].type = this.value;
+          drawWave();
         };
-        row.querySelector('.osc-btn.del').onclick = function() {
+        row.appendChild(typeSel);
+
+        // 주파수 슬라이더 + 입력
+        row.appendChild(makeSliderInput(osc, idx, 'freq', 20, 2000, 1, 'Hz'));
+        // 진폭 슬라이더 + 입력
+        row.appendChild(makeSliderInput(osc, idx, 'amp', 0, 1, 0.01, 'A'));
+        // 위상 슬라이더 + 입력
+        row.appendChild(makeSliderInput(osc, idx, 'phase', 0, 360, 1, '°'));
+
+        // 삭제 버튼
+        const delBtn = document.createElement('button');
+        delBtn.className = 'osc-btn del';
+        delBtn.textContent = '삭제';
+        delBtn.onclick = function() {
           oscillators.splice(idx, 1);
-          renderOscillatorList();
-          draw();
+          renderOscList();
+          drawWave();
         };
-        listDiv.appendChild(row);
+        row.appendChild(delBtn);
+
+        list.appendChild(row);
       });
     }
 
-    function renderSampleOscillatorList() {
-      const listDiv = document.getElementById('sample-osc-list');
-      listDiv.innerHTML = '';
+    // ===== [슬라이더+입력 동기화 및 부드러운 입력 최적화] =====
+    function makeSliderInput(osc, idx, key, min, max, step, unit) {
+      const label = document.createElement('label');
+      label.textContent = key === 'freq' ? "주파수" : key === 'amp' ? "볼륨" : "위상";
+
+      const slider = document.createElement('input');
+      slider.type = 'range';
+      slider.min = min;
+      slider.max = max;
+      slider.step = step;
+      slider.value = osc[key];
+
+      const number = document.createElement('input');
+      number.type = 'number';
+      number.min = min;
+      number.max = max;
+      number.step = step;
+      number.value = osc[key];
+
+      let rafId = null;
+      function update(val) {
+        osc[key] = parseFloat(val);
+        slider.value = val;
+        number.value = val;
+        if (!rafId) {
+          rafId = requestAnimationFrame(() => {
+            drawWave();
+            rafId = null;
+          });
+        }
+      }
+
+      slider.addEventListener('input', e => update(e.target.value));
+      number.addEventListener('input', e => update(e.target.value));
+      number.addEventListener('change', e => update(e.target.value));
+      number.addEventListener('focus', e => e.stopPropagation());
+
+      label.appendChild(slider);
+      label.appendChild(number);
+      label.appendChild(document.createTextNode(unit));
+      return label;
+    }
+
+    // ===== [파형 그리기] =====
+    function drawWave() {
+      const cvs = document.getElementById('waveform');
+      const ctx = cvs.getContext('2d');
+      ctx.clearRect(0, 0, cvs.width, cvs.height);
+      const w = cvs.width, h = cvs.height;
+      ctx.save();
+      ctx.strokeStyle = "#2196f3";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      for (let x = 0; x < w; x++) {
+        let t = x / w;
+        let y = 0;
+        oscillators.forEach(osc => {
+          let theta = 2 * Math.PI * osc.freq * t + osc.phase * Math.PI / 180;
+          let v = 0;
+          switch (osc.type) {
+            case "sine": v = Math.sin(theta); break;
+            case "triangle": v = 2 * Math.abs(2 * (t * osc.freq - Math.floor(t * osc.freq + 0.5))) - 1; break;
+            case "square": v = Math.sign(Math.sin(theta)); break;
+            case "sawtooth": v = 2 * (t * osc.freq - Math.floor(t * osc.freq + 0.5)); break;
+          }
+          y += osc.amp * v;
+        });
+        if (noiseCancel && oscillators.length > 0) y /= oscillators.length;
+        if (x === 0) ctx.moveTo(x, h / 2 - y * h / 4);
+        else ctx.lineTo(x, h / 2 - y * h / 4);
+      }
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // ===== [3/5 끝] =====
+<!-- ===== [4/5] ===== -->
+    // ===== [샘플 파형 버튼 및 샘플 모드 =====
+    function setSampleMode(on) {
+      isSampleMode = on;
+      document.body.className = on ? "show-sample" : "";
+      if (on) {
+        drawSampleWave();
+        renderSampleOscList();
+      } else {
+        drawWave();
+        renderOscList();
+      }
+    }
+
+    document.getElementById('btn-tri').onclick = function() {
+      sampleOscillators = [
+        { type: "triangle", freq: 440, amp: 0.7, phase: 0 }
+      ];
+      setSampleMode(true);
+      showSampleFormula('triangle');
+    };
+    document.getElementById('btn-square').onclick = function() {
+      sampleOscillators = [
+        { type: "square", freq: 440, amp: 0.7, phase: 0 }
+      ];
+      setSampleMode(true);
+      showSampleFormula('square');
+    };
+    document.getElementById('btn-saw').onclick = function() {
+      sampleOscillators = [
+        { type: "sawtooth", freq: 440, amp: 0.7, phase: 0 }
+      ];
+      setSampleMode(true);
+      showSampleFormula('sawtooth');
+    };
+    document.getElementById('back-btn').onclick = function() {
+      setSampleMode(false);
+    };
+
+    function showSampleFormula(type) {
+      const formulaDiv = document.getElementById('sample-formula');
+      let formula = '';
+      if (type === 'triangle') {
+        formula = '<h3>삼각파</h3>$$x(t) = \\frac{8}{\\pi^2} \\sum_{n=1,3,5,...}^\\infty \\frac{1}{n^2} \\sin(2\\pi n f t)$$';
+      } else if (type === 'square') {
+        formula = '<h3>사각파</h3>$$x(t) = \\frac{4}{\\pi} \\sum_{n=1,3,5,...}^\\infty \\frac{1}{n} \\sin(2\\pi n f t)$$';
+      } else if (type === 'sawtooth') {
+        formula = '<h3>톱니파</h3>$$x(t) = \\frac{2}{\\pi} \\sum_{n=1}^\\infty \\frac{(-1)^{n+1}}{n} \\sin(2\\pi n f t)$$';
+      }
+      formulaDiv.innerHTML = formula;
+      if (window.MathJax && window.MathJax.typesetPromise) {
+        window.MathJax.typesetPromise([formulaDiv]);
+      }
+    }
+
+    // ===== [샘플 오실레이터 리스트/슬라이더/입력/삭제] =====
+    function renderSampleOscList() {
+      const list = document.getElementById('sample-osc-list');
+      list.innerHTML = '';
       sampleOscillators.forEach((osc, idx) => {
         const row = document.createElement('div');
         row.className = 'sample-osc-row';
-        row.style.background = osc.active ? '#fff' : '#eee';
-        row.innerHTML = `
-          <label>f:<input type="number" min="20" max="2000" step="1" value="${osc.freq}"></label>
-          <input type="range" min="20" max="2000" step="1" value="${osc.freq}">
-          <label>A:<input type="number" min="0" max="1" step="0.01" value="${osc.vol}"></label>
-          <input type="range" min="0" max="1" step="0.01" value="${osc.vol}">
-          <label>φ:<input type="number" min="0" max="360" step="1" value="${osc.phase}"></label>
-          <input type="range" min="0" max="360" step="1" value="${osc.phase}">
-          <button class="sample-osc-btn ${osc.active ? 'on' : 'off'}">${osc.active ? 'ON' : 'OFF'}</button>
-          <button class="sample-osc-btn del">삭제</button>
-          <span class="formula">${osc.vol}·sin(2π·${osc.freq}t${osc.phase ? `+${phaseToPiString(osc.phase)}` : ''})</span>
-        `;
-        const inputs = row.querySelectorAll('input[type="number"]');
-        const sliders = row.querySelectorAll('input[type="range"]');
-        inputs[0].addEventListener('input', makeNumberInputHandler(sampleOscillators, idx, 'freq', renderSampleOscillatorList, sampleDrawLoop));
-        sliders[0].addEventListener('input', makeSliderHandler(sampleOscillators, idx, 'freq', renderSampleOscillatorList, sampleDrawLoop));
-        inputs[1].addEventListener('input', makeNumberInputHandler(sampleOscillators, idx, 'vol', renderSampleOscillatorList, sampleDrawLoop));
-        sliders[1].addEventListener('input', makeSliderHandler(sampleOscillators, idx, 'vol', renderSampleOscillatorList, sampleDrawLoop));
-        inputs[2].addEventListener('input', makeNumberInputHandler(sampleOscillators, idx, 'phase', renderSampleOscillatorList, sampleDrawLoop));
-        sliders[2].addEventListener('input', makeSliderHandler(sampleOscillators, idx, 'phase', renderSampleOscillatorList, sampleDrawLoop));
-        row.querySelector('.sample-osc-btn.on, .sample-osc-btn.off').onclick = function() {
-          sampleOscillators[idx].active = !sampleOscillators[idx].active;
-          renderSampleOscillatorList();
-          sampleDrawLoop();
+
+        const typeSel = document.createElement('select');
+        WAVE_TYPES.forEach(t => {
+          const opt = document.createElement('option');
+          opt.value = t.name;
+          opt.textContent = t.label;
+          if (osc.type === t.name) opt.selected = true;
+          typeSel.appendChild(opt);
+        });
+        typeSel.onchange = function() {
+          sampleOscillators[idx].type = this.value;
+          drawSampleWave();
         };
-        row.querySelector('.sample-osc-btn.del').onclick = function() {
+        row.appendChild(typeSel);
+
+        row.appendChild(makeSampleSliderInput(osc, idx, 'freq', 20, 2000, 1, 'Hz'));
+        row.appendChild(makeSampleSliderInput(osc, idx, 'amp', 0, 1, 0.01, 'A'));
+        row.appendChild(makeSampleSliderInput(osc, idx, 'phase', 0, 360, 1, '°'));
+
+        const delBtn = document.createElement('button');
+        delBtn.className = 'sample-osc-btn del';
+        delBtn.textContent = '삭제';
+        delBtn.onclick = function() {
           sampleOscillators.splice(idx, 1);
-          renderSampleOscillatorList();
-          sampleDrawLoop();
+          renderSampleOscList();
+          drawSampleWave();
         };
-        listDiv.appendChild(row);
+        row.appendChild(delBtn);
+
+        list.appendChild(row);
       });
     }
 
-    // ===================== (3/4) 파형 그리기(draw), 오실레이터 리스트 초기화, 버튼 연결 =====================
-    function drawGrid(ctx, width, height, vstep, hstep) {
-      ctx.save();
-      ctx.strokeStyle = "#eee";
-      ctx.lineWidth = 1;
-      for (let x = 40; x < width-10; x += Math.round((width-60)/vstep)) {
-        ctx.beginPath();
-        ctx.moveTo(x, 10);
-        ctx.lineTo(x, height-10);
-        ctx.stroke();
-      }
-      for (let y = 10; y < height-10; y += Math.round((height-20)/hstep)) {
-        ctx.beginPath();
-        ctx.moveTo(40, y);
-        ctx.lineTo(width-10, y);
-        ctx.stroke();
-      }
-      ctx.restore();
-    }
-    function drawAxes(ctx, width, height, yMin, yMax, view) {
-      ctx.save();
-      ctx.strokeStyle = "#bbb";
-      ctx.lineWidth = 1.2;
-      // x축
-      let y0 = height/2 - (0)*((height-40)/(yMax-yMin));
-      ctx.beginPath();
-      ctx.moveTo(40, y0);
-      ctx.lineTo(width-10, y0);
-      ctx.stroke();
-      // y축
-      ctx.beginPath();
-      ctx.moveTo(40, 10);
-      ctx.lineTo(40, height-10);
-      ctx.stroke();
-      ctx.restore();
-    }
+    function makeSampleSliderInput(osc, idx, key, min, max, step, unit) {
+      const label = document.createElement('label');
+      label.textContent = key === 'freq' ? "주파수" : key === 'amp' ? "볼륨" : "위상";
 
-    function draw() {
-      const canvas = document.getElementById('waveform');
-      const ctx = canvas.getContext('2d');
-      ctx.clearRect(0,0,canvas.width,canvas.height);
-      drawGrid(ctx, canvas.width, canvas.height, 10, 8);
-      const n = 800;
-      const t = Array.from({length:n}, (_,i)=>view.tStart + i/n*view.tSpan);
-      let sum = Array(n).fill(0);
-      oscillators.forEach((o) => {
-        if(o.active) {
-          const phi = o.phase * Math.PI / 180;
-          for(let i=0; i<n; i++) {
-            sum[i] += Math.sin(2*Math.PI*o.freq*t[i] + phi) * o.vol;
-          }
+      const slider = document.createElement('input');
+      slider.type = 'range';
+      slider.min = min;
+      slider.max = max;
+      slider.step = step;
+      slider.value = osc[key];
+
+      const number = document.createElement('input');
+      number.type = 'number';
+      number.min = min;
+      number.max = max;
+      number.step = step;
+      number.value = osc[key];
+
+      let rafId = null;
+      function update(val) {
+        osc[key] = parseFloat(val);
+        slider.value = val;
+        number.value = val;
+        if (!rafId) {
+          rafId = requestAnimationFrame(() => {
+            drawSampleWave();
+            rafId = null;
+          });
         }
-      });
-      drawAxes(ctx, canvas.width, canvas.height, view.yMin, view.yMax, view);
-      ctx.save();
-      ctx.beginPath();
-      for(let i=0; i<n; i++) {
-        const x = 40 + (canvas.width-60)*(t[i]-view.tStart)/view.tSpan;
-        const y = canvas.height/2 - (sum[i])*((canvas.height-40)/(view.yMax-view.yMin));
-        if(i===0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
       }
-      ctx.strokeStyle = "#2196f3";
-      ctx.lineWidth = 2;
-      ctx.globalAlpha = 0.95;
-      ctx.stroke();
-      ctx.restore();
+
+      slider.addEventListener('input', e => update(e.target.value));
+      number.addEventListener('input', e => update(e.target.value));
+      number.addEventListener('change', e => update(e.target.value));
+      number.addEventListener('focus', e => e.stopPropagation());
+
+      label.appendChild(slider);
+      label.appendChild(number);
+      label.appendChild(document.createTextNode(unit));
+      return label;
     }
 
-    function sampleDrawLoop() {
-      const canvas = document.getElementById('sample-waveform');
-      const ctx = canvas.getContext('2d');
-      ctx.clearRect(0,0,canvas.width,canvas.height);
-      drawGrid(ctx, canvas.width, canvas.height, 10, 8);
-      const n = 800;
-      const t = Array.from({length:n}, (_,i)=>sampleView.tStart + i/n*sampleView.tSpan);
-      let sum = Array(n).fill(0);
-      sampleOscillators.forEach((o) => {
-        if(o.active) {
-          const phi = o.phase * Math.PI / 180;
-          for(let i=0; i<n; i++) {
-            sum[i] += Math.sin(2*Math.PI*o.freq*t[i] + phi) * o.vol;
+    // ===== [샘플 파형 그리기] =====
+    function drawSampleWave() {
+      const cvs = document.getElementById('sample-waveform');
+      const ctx = cvs.getContext('2d');
+      ctx.clearRect(0, 0, cvs.width, cvs.height);
+      const w = cvs.width, h = cvs.height;
+      ctx.save();
+      ctx.strokeStyle = "#e91e63";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      for (let x = 0; x < w; x++) {
+        let t = x / w;
+        let y = 0;
+        sampleOscillators.forEach(osc => {
+          let theta = 2 * Math.PI * osc.freq * t + osc.phase * Math.PI / 180;
+          let v = 0;
+          switch (osc.type) {
+            case "sine": v = Math.sin(theta); break;
+            case "triangle": v = 2 * Math.abs(2 * (t * osc.freq - Math.floor(t * osc.freq + 0.5))) - 1; break;
+            case "square": v = Math.sign(Math.sin(theta)); break;
+            case "sawtooth": v = 2 * (t * osc.freq - Math.floor(t * osc.freq + 0.5)); break;
           }
-        }
-      });
-      drawAxes(ctx, canvas.width, canvas.height, sampleView.yMin, sampleView.yMax, sampleView);
-      ctx.save();
-      ctx.beginPath();
-      for(let i=0; i<n; i++) {
-        const x = 40 + (canvas.width-60)*(t[i]-sampleView.tStart)/sampleView.tSpan;
-        const y = canvas.height/2 - (sum[i])*((canvas.height-40)/(sampleView.yMax-sampleView.yMin));
-        if(i===0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
+          y += osc.amp * v;
+        });
+        if (sampleNoiseCancel && sampleOscillators.length > 0) y /= sampleOscillators.length;
+        if (x === 0) ctx.moveTo(x, h / 2 - y * h / 4);
+        else ctx.lineTo(x, h / 2 - y * h / 4);
       }
-      ctx.strokeStyle = "#4caf50";
-      ctx.lineWidth = 2;
-      ctx.globalAlpha = 0.95;
       ctx.stroke();
       ctx.restore();
     }
 
-    document.addEventListener('DOMContentLoaded', function() {
-      renderOscillatorList();
-      renderSampleOscillatorList();
-      draw();
-      sampleDrawLoop();
-    });
-
-    document.getElementById('reset-btn').onclick = function() {
-      oscillators = [];
-      renderOscillatorList();
-      draw();
+    // ===== [샘플 함수 추가/무작위/초기화/노이즈캔슬 버튼] =====
+    document.getElementById('sample-add-btn').onclick = function() {
+      openOscModal(function(osc) {
+        sampleOscillators.push(osc);
+        renderSampleOscList();
+        drawSampleWave();
+      });
+    };
+    document.getElementById('sample-rand-btn').onclick = function() {
+      const type = WAVE_TYPES[Math.floor(Math.random() * WAVE_TYPES.length)].name;
+      const freq = Math.floor(Math.random() * 900) + 100;
+      const amp = +(Math.random() * 0.8 + 0.2).toFixed(2);
+      const phase = Math.floor(Math.random() * 360);
+      sampleOscillators.push({ type, freq, amp, phase });
+      renderSampleOscList();
+      drawSampleWave();
     };
     document.getElementById('sample-reset-btn').onclick = function() {
       sampleOscillators = [];
-      renderSampleOscillatorList();
-      sampleDrawLoop();
-    };
-    document.getElementById('nc-btn').onclick = function() {
-      noiseCancelOn = !noiseCancelOn;
-      this.textContent = noiseCancelOn ? '노이즈 캔슬링 ON' : '노이즈 캔슬링 OFF';
-      this.classList.toggle('active', noiseCancelOn);
-      draw();
+      renderSampleOscList();
+      drawSampleWave();
     };
     document.getElementById('sample-nc-btn').onclick = function() {
-      sampleNoiseCancelOn = !sampleNoiseCancelOn;
-      this.textContent = sampleNoiseCancelOn ? '노이즈 캔슬링 ON' : '노이즈 캔슬링 OFF';
-      this.classList.toggle('active', sampleNoiseCancelOn);
-      sampleDrawLoop();
+      sampleNoiseCancel = !sampleNoiseCancel;
+      this.textContent = sampleNoiseCancel ? "노이즈 캔슬링 ON" : "노이즈 캔슬링 OFF";
+      drawSampleWave();
     };
+
+    // ===== [4/5 끝] =====
+<!-- ===== [5/5] ===== -->
+    // ===== [초기화 및 이벤트 바인딩] =====
+    function init() {
+      resizeCanvas();
+      renderOscList();
+      drawWave();
+      renderSampleOscList();
+      drawSampleWave();
+    }
+    window.addEventListener('DOMContentLoaded', init);
+    window.addEventListener('resize', function() {
+      resizeCanvas();
+      if (isSampleMode) drawSampleWave();
+      else drawWave();
+    });
+
+    // ===== [오디오 재생(메인/샘플)] =====
+    document.getElementById('play-btn').onclick = function() {
+      // 오디오 재생 구현 (생략: 실제 오디오 출력 필요시 Web Audio API 활용)
+      alert('이 샘플에서는 오디오 출력이 구현되어 있지 않습니다.');
+    };
+    document.getElementById('restart-btn').onclick = function() {
+      // 오디오 재시작 구현 (생략)
+      alert('이 샘플에서는 오디오 출력이 구현되어 있지 않습니다.');
+    };
+    document.getElementById('sample-play-btn').onclick = function() {
+      alert('이 샘플에서는 오디오 출력이 구현되어 있지 않습니다.');
+    };
+
+    // ===== [모달 닫기(ESC, 바깥 클릭)] =====
+    document.getElementById('osc-modal').addEventListener('click', function(e) {
+      if (e.target === this) this.style.display = 'none';
+    });
+    window.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape' && document.getElementById('osc-modal').style.display === 'flex') {
+        document.getElementById('osc-modal').style.display = 'none';
+      }
+    });
   </script>
 </body>
 </html>
+<!-- ===== [5/5 끝] ===== -->
