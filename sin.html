@@ -7,21 +7,48 @@
     body { background: #222; color: #eee; font-family: sans-serif; }
     canvas { background: #111; display: block; margin: 0 auto; }
     .equations { max-width: 700px; margin: 20px auto; font-size: 1.1em; }
+    .error { color: #ff5555; text-align: center; margin: 20px; }
   </style>
 </head>
 <body>
   <h2 style="text-align:center;">마이크 신호 사인파 분해 실시간 시각화</h2>
   <canvas id="canvas" width="700" height="300"></canvas>
   <div class="equations" id="eq"></div>
+  <div class="error" id="err"></div>
   <script>
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
     const eqDiv = document.getElementById('eq');
+    const errDiv = document.getElementById('err');
     const WIDTH = canvas.width, HEIGHT = canvas.height;
     const N = 8; // 시각화할 주요 주파수 성분 개수
 
-    // 마이크 접근 및 오디오 분석
-    navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+    // 마이크 접근 함수
+    async function startMic() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        errDiv.textContent = "";
+        visualize(stream);
+      } catch (err) {
+        if (err.name === "NotAllowedError" || err.name === "SecurityError") {
+          errDiv.innerHTML = `
+            <b>마이크 접근 권한이 필요합니다.</b><br>
+            <ul style="text-align:left; margin: 0 auto; display: inline-block;">
+              <li>브라우저 주소창 왼쪽 자물쇠 아이콘 클릭 → 마이크 권한 "허용"으로 변경</li>
+              <li>PC/OS의 마이크 설정에서 마이크 접근이 켜져 있는지 확인</li>
+              <li>변경 후 페이지를 새로고침하세요</li>
+            </ul>
+          `;
+        } else if (err.name === "NotFoundError") {
+          errDiv.innerHTML = "<b>마이크 장치가 연결되어 있지 않습니다.</b>";
+        } else {
+          errDiv.innerHTML = "<b>마이크 사용 중 오류가 발생했습니다:</b> " + err.message;
+        }
+      }
+    }
+
+    // 시각화 함수
+    function visualize(stream) {
       const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       const analyser = audioCtx.createAnalyser();
       analyser.fftSize = 1024;
@@ -30,11 +57,11 @@
 
       const bufferLength = analyser.fftSize;
       const timeData = new Float32Array(bufferLength);
-      const freqData = new Float32Array(analyser.frequencyBinCount);
+      const freqData = new Uint8Array(analyser.frequencyBinCount);
 
       function draw() {
         analyser.getFloatTimeDomainData(timeData);
-        analyser.getByteFrequencyData(freqData); // 0~255로 주파수별 세기
+        analyser.getByteFrequencyData(freqData); // 0~255
 
         ctx.clearRect(0, 0, WIDTH, HEIGHT);
 
@@ -50,13 +77,14 @@
         for (let n = 0; n < N; n++) {
           let i = top[n].idx;
           let freq = i * audioCtx.sampleRate / analyser.fftSize;
-          let amp = top[n].mag / 128; // 대략적인 진폭 정규화
-          let phase = 0; // 위상은 생략
+          let amp = top[n].mag / 128;
+          let ampStr = amp.toFixed(2);
+          let phase = 0; // 위상 생략
 
           ctx.beginPath();
           ctx.strokeStyle = `rgba(100,200,255,0.3)`;
           for (let x = 0; x < WIDTH; x++) {
-            let t = x / WIDTH; // 0~1
+            let t = x / WIDTH;
             let y = amp * Math.sin(2 * Math.PI * freq * t * 0.01 + phase);
             let plotY = HEIGHT/2 - y * HEIGHT/3;
             if (x === 0) ctx.moveTo(x, plotY);
@@ -64,7 +92,7 @@
             sumY[x] += y;
           }
           ctx.stroke();
-          eqs.push(`A<sub>${n+1}</sub>sin(2π${freq.toFixed(1)}t)`);
+          eqs.push(`(${ampStr})sin(2π${freq.toFixed(1)}t)`);
         }
 
         // 합성 신호(모든 사인파 합) 그리기 (진하게, 선만)
@@ -95,9 +123,10 @@
         requestAnimationFrame(draw);
       }
       draw();
-    }).catch(err => {
-      eqDiv.innerHTML = "마이크 접근 권한이 필요합니다.";
-    });
+    }
+
+    // 페이지 로드시 마이크 접근 시도
+    window.onload = startMic;
   </script>
 </body>
 </html>
